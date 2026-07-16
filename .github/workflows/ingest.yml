@@ -31,6 +31,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
 
       - uses: actions/setup-node@v4
         with:
@@ -47,7 +49,7 @@ jobs:
           ONLY: ${{ inputs.only }}
           DRY_RUN: ${{ inputs.dry_run }}
         run: |
-          FLAGS=""
-          if [ "$DRY_RUN" = "true" ]; then FLAGS="$FLAGS --dry-run"; fi
-          if [ -n "$ONLY" ]; then FLAGS="$FLAGS --only \"$ONLY\""; fi
-          eval npx tsx src/ingest/index.ts $FLAGS
+          FLAGS=()
+          if [ "$DRY_RUN" = "true" ]; then FLAGS+=("--dry-run"); fi
+          if [ -n "$ONLY" ]; then FLAGS+=("--only" "$ONLY"); fi
+          npx tsx src/ingest/index.ts "${FLAGS[@]}"
