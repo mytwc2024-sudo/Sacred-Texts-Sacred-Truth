@@ -12,9 +12,12 @@
     "typecheck": "tsc --noEmit",
     "ingest": "tsx src/ingest/index.ts",
     "ingest:dry": "tsx src/ingest/index.ts --dry-run",
-    "list-sources": "tsx src/ingest/index.ts --list"
+    "list-sources": "tsx src/ingest/index.ts --list",
+    "concepts": "tsx src/concepts/index.ts",
+    "sync:notion": "tsx src/notion-sync/index.ts"
   },
   "dependencies": {
+    "@notionhq/client": "^2.2.15",
     "@supabase/supabase-js": "^2.45.0",
     "cheerio": "^1.0.0",
     "openai": "^4.56.0"

@@ -23,3 +23,26 @@ export async function embedBatch(inputs: string[]): Promise<number[][]> {
     .sort((a, b) => a.index - b.index)
     .map((d) => d.embedding as number[]);
 }
+
+/**
+ * Ask a chat model for a strict-JSON answer and parse it. Used by concept
+ * extraction. Returns the parsed object typed as T (caller asserts the shape).
+ */
+export async function extractJson<T>(
+  system: string,
+  user: string,
+  model = 'gpt-4o-mini',
+): Promise<T> {
+  const response = await client.chat.completions.create({
+    model,
+    temperature: 0,
+    response_format: { type: 'json_object' },
+    messages: [
+      { role: 'system', content: system },
+      { role: 'user', content: user },
+    ],
+  });
+  const content = response.choices[0]?.message?.content;
+  if (!content) throw new Error('Empty response from chat model');
+  return JSON.parse(content) as T;
+}

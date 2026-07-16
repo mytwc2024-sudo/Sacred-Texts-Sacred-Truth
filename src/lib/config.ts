@@ -43,6 +43,12 @@ export const config = {
       embeddingDimensions: 1536,
     };
   },
+  get notion() {
+    return {
+      token: required('NOTION_TOKEN'),
+      textsDatabaseId: required('NOTION_TEXTS_DATABASE_ID'),
+    };
+  },
   ingest: {
     requestDelayMs: optionalNumber('INGEST_REQUEST_DELAY_MS', 1500),
     chunkSizeWords: optionalNumber('INGEST_CHUNK_SIZE_WORDS', 800),
