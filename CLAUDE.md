@@ -64,8 +64,11 @@ correctness gate; `npm run ingest:dry` exercises scrape+chunk without secrets.
 
 - **TypeScript, ESM** (`"type": "module"`). Use `.js` extensions on relative
   imports (required by ESM), `strict` + `noUncheckedIndexedAccess` are on.
-- **Namespacing:** every AKST database object is prefixed `akst_`. Do not create
-  un-prefixed tables in this shared Supabase project.
+- **Namespacing:** every AKST table, view, and function carries the `akst_`
+  prefix so it can't collide in the shared `public` schema. Do not create
+  un-prefixed relations here. Indexes use the conventional `idx_akst_<table>_…`
+  form — they already embed `akst_` and never collide, so that convention stands
+  rather than a bare `akst_` prefix.
 - **Secrets:** never hardcode keys. Everything sensitive comes from the
   environment via `src/lib/config.ts`. `.env` is gitignored. The service-role
   key is server-side only and must never reach the Lovable frontend.
