@@ -1,0 +1,55 @@
+name: AKST Ingestion
+
+# Runs the Sacred-Texts.com -> Supabase ingestion pipeline.
+# - Manually via the "Run workflow" button (optionally targeting one title).
+# - On a weekly schedule to pick up newly-added catalog entries.
+#
+# Secrets required (Settings -> Secrets and variables -> Actions):
+#   SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, OPENAI_API_KEY
+
+on:
+  workflow_dispatch:
+    inputs:
+      only:
+        description: 'Ingest a single title (exact match). Leave blank for all.'
+        required: false
+        type: string
+      dry_run:
+        description: 'Scrape + chunk only (no OpenAI, no DB writes).'
+        required: false
+        type: boolean
+        default: false
+  schedule:
+    - cron: '0 6 * * 1' # Mondays 06:00 UTC
+
+concurrency:
+  group: akst-ingest
+  cancel-in-progress: false
+
+jobs:
+  ingest:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - run: npm ci
+
+      - name: Run ingestion
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          ONLY: ${{ inputs.only }}
+          DRY_RUN: ${{ inputs.dry_run }}
+        run: |
+          FLAGS=()
+          if [ "$DRY_RUN" = "true" ]; then FLAGS+=("--dry-run"); fi
+          if [ -n "$ONLY" ]; then FLAGS+=("--only" "$ONLY"); fi
+          npx tsx src/ingest/index.ts "${FLAGS[@]}"

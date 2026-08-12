@@ -1,0 +1,30 @@
+{
+  "name": "akst-ingestion",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "AKST — Ancient Knowledge Sacred Texts: Sacred-Texts.com → Supabase ingestion pipeline (connects Supabase, Notion, GitHub, and the Lovable frontend).",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "build": "tsc",
+    "typecheck": "tsc --noEmit",
+    "ingest": "tsx src/ingest/index.ts",
+    "ingest:dry": "tsx src/ingest/index.ts --dry-run",
+    "list-sources": "tsx src/ingest/index.ts --list",
+    "concepts": "tsx src/concepts/index.ts",
+    "sync:notion": "tsx src/notion-sync/index.ts"
+  },
+  "dependencies": {
+    "@notionhq/client": "^2.2.15",
+    "@supabase/supabase-js": "^2.45.0",
+    "cheerio": "^1.0.0",
+    "openai": "^4.56.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.14.0",
+    "tsx": "^4.16.0",
+    "typescript": "^5.5.0"
+  }
+}
