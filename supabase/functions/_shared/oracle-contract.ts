@@ -10,6 +10,8 @@ export type OracleState = "grounded" | "partial" | "insufficient" | "degraded";
 export type OracleAnswerMode = "generated_grounded" | "evidence_only";
 export type OracleWell = "grimoire" | "akst_ancient" | "sacred_writings";
 
+const ALL_WELLS: OracleWell[] = ["grimoire", "akst_ancient", "sacred_writings"];
+
 export type OracleCitation = {
   label: string;
   well: OracleWell;
@@ -52,7 +54,6 @@ export type OracleRetrieval = {
   embedding_model?: string | null;
   embedding_dimensions?: number | null;
   embedding_count?: number | null;
-  // Compatibility/detail fields may be retained during migration.
   [key: string]: unknown;
 };
 
@@ -106,23 +107,20 @@ export type OracleV1BuildInput = {
   lawsApplied: string[];
   legacyRetrieval?: Record<string, unknown>;
   traceId?: string | null;
+  wellsQueried?: OracleWell[];
 };
 
 export function buildOracleV1(input: OracleV1BuildInput): OracleResponseV1 {
-  const degradedReasons = collectDegradedReasons(input);
+  const wellsQueried = input.wellsQueried?.length ? uniqueWells(input.wellsQueried) : [...ALL_WELLS];
+  const degradedReasons = collectDegradedReasons(input, wellsQueried);
   const evidenceUnits = [
     ...normalizeGrimoire(input.grimoire),
     ...normalizeAncient(input.ancient),
     ...normalizeSacred(input.sacredWritings),
   ];
-
-  const state = deriveState(input.legacyEvidenceState, degradedReasons, evidenceUnits.length);
   const wellsReturned = uniqueWells(evidenceUnits.map((unit) => unit.well));
-  const methods = uniqueStrings([
-    methodFor(input.grimoire, "lexical"),
-    methodFor(input.ancient, "lexical"),
-    methodFor(input.sacredWritings, "lexical"),
-  ]);
+  const state = deriveState(input.legacyEvidenceState, degradedReasons, evidenceUnits.length, wellsQueried, wellsReturned);
+  const methods = uniqueStrings(wellsQueried.map((well) => methodFor(resultForWell(input, well), "lexical")));
 
   return {
     contract_version: ORACLE_CONTRACT_VERSION,
@@ -139,7 +137,7 @@ export function buildOracleV1(input: OracleV1BuildInput): OracleResponseV1 {
     retrieval: {
       ...(input.legacyRetrieval ?? {}),
       methods,
-      wells_queried: ["grimoire", "akst_ancient", "sacred_writings"],
+      wells_queried: wellsQueried,
       wells_returned: wellsReturned,
       degraded_reasons: degradedReasons,
       embedding_model: asString(input.legacyRetrieval?.embedding_model),
@@ -162,26 +160,30 @@ function deriveState(
   legacy: OracleV1BuildInput["legacyEvidenceState"],
   degradedReasons: string[],
   evidenceCount: number,
+  wellsQueried: OracleWell[],
+  wellsReturned: OracleWell[],
 ): OracleState {
   if (legacy === "insufficient" || evidenceCount === 0) return "insufficient";
   if (degradedReasons.some((reason) => reason.startsWith("well_error:"))) return "degraded";
-  if (legacy === "partial") return "partial";
-  return "grounded";
+  if (wellsQueried.every((well) => wellsReturned.includes(well))) return "grounded";
+  return "partial";
 }
 
-function collectDegradedReasons(input: OracleV1BuildInput) {
+function collectDegradedReasons(input: OracleV1BuildInput, wellsQueried: OracleWell[]) {
   const reasons: string[] = [];
-  const wells: Array<[OracleWell, OracleLegacyWellResult]> = [
-    ["grimoire", input.grimoire],
-    ["akst_ancient", input.ancient],
-    ["sacred_writings", input.sacredWritings],
-  ];
-  for (const [well, result] of wells) {
+  for (const well of wellsQueried) {
+    const result = resultForWell(input, well);
     if (result.status === "error") reasons.push(`well_error:${well}`);
     if (result.vector_status === "vector_error") reasons.push(`vector_error:${well}`);
     if (result.vector_status === "unavailable") reasons.push(`vector_unavailable:${well}`);
   }
   return uniqueStrings(reasons);
+}
+
+function resultForWell(input: OracleV1BuildInput, well: OracleWell): OracleLegacyWellResult {
+  if (well === "grimoire") return input.grimoire;
+  if (well === "akst_ancient") return input.ancient;
+  return input.sacredWritings;
 }
 
 function normalizeGrimoire(result: OracleLegacyWellResult): OracleEvidenceUnit[] {
@@ -251,6 +253,9 @@ function restrictionsFor(surface: OracleSurface) {
       "no_practitioner_private_material",
       "exclude_sacred_writings_tier_b",
     ];
+  }
+  if (surface === "akst_learning") {
+    return ["rights_cleared_ancient_texts_only", "learning_context_may_refine_retrieval_not_source_rights"];
   }
   return [];
 }
