@@ -103,3 +103,29 @@ Deno.test("luminaria surface publishes explicit client restrictions", () => {
   assert(result.policy.surface_restrictions.includes("exclude_sacred_writings_tier_b"));
   assert(result.policy.surface_restrictions.includes("no_diagnosis_or_treatment"));
 });
+
+Deno.test("oracle.v1 preserves legacy retrieval metadata during additive migration", () => {
+  const result = buildOracleV1({
+    question: "Question",
+    surface: "internal",
+    answer: "Answer",
+    answerMode: "evidence_only",
+    legacyEvidenceState: "partial",
+    grimoire: { status: "grounded", hits: [{ id: "g1", title: "Rose", excerpt: "Correspondence" }] },
+    ancient: { status: "empty", hits: [] },
+    sacredWritings: { status: "empty", hits: [] },
+    citations: [{ label: "G1", well: "grimoire", title: "Rose" }],
+    lawsApplied: ["No fabrication"],
+    legacyRetrieval: {
+      asking_point: "oracle-query",
+      embedding_status: "ready",
+      well_1: "legacy-well-description",
+      runtime_authority: "AKST Supabase",
+    },
+  });
+
+  assertEquals(result.retrieval.embedding_status, "ready");
+  assertEquals(result.retrieval.well_1, "legacy-well-description");
+  assertEquals(result.retrieval.runtime_authority, "AKST Supabase");
+  assertEquals(result.diagnostics?.asking_point, "oracle-query");
+});
