@@ -33,6 +33,26 @@ function log(msg: string): void {
   console.log(`[akst] ${msg}`);
 }
 
+/**
+ * Extract a human-readable message from an error. Supabase/PostgREST rejects
+ * with plain objects ({ message, details, hint, code }) rather than Error
+ * instances, so `String(err)` would print "[object Object]" and hide the cause.
+ */
+function formatError(err: unknown): string {
+  if (err instanceof Error) return err.message;
+  if (err && typeof err === 'object') {
+    const e = err as Record<string, unknown>;
+    const parts = [e.message, e.details, e.hint, e.code].filter(Boolean);
+    if (parts.length > 0) return parts.join(' | ');
+    try {
+      return JSON.stringify(err);
+    } catch {
+      return String(err);
+    }
+  }
+  return String(err);
+}
+
 async function ingestOne(source: TextSource): Promise<void> {
   log(`— ${source.title} (${source.tradition}) —`);
 
@@ -88,8 +108,7 @@ async function ingestOne(source: TextSource): Promise<void> {
     await markComplete(textId, chunks.length);
     log(`  ✓ stored ${chunks.length} chunks${SKIP_EMBEDDINGS ? ' (no embeddings)' : ''}`);
   } catch (err) {
-    const message = err instanceof Error ? err.message : String(err);
-    await markError(textId, message);
+    await markError(textId, formatError(err));
     throw err;
   }
 }
@@ -116,7 +135,7 @@ async function main(): Promise<void> {
       await ingestOne(source);
       ok++;
     } catch (err) {
-      const message = err instanceof Error ? err.message : String(err);
+      const message = formatError(err);
       log(`  ✗ ${source.title}: ${message}`);
       failures.push(`${source.title}: ${message}`);
     }
