@@ -64,11 +64,19 @@ npm run list-sources          # print the catalog
 npm run ingest:dry            # scrape + chunk only (no OpenAI, no DB writes)
 npm run ingest                # full run: scrape → chunk → embed → store
 npm run ingest -- --only "Tao Te Ching"   # a single title
+npm run ingest -- --skip-embeddings       # store text + chunks, NULL vectors
+npm run backfill:embeddings               # embed already-stored NULL-vector chunks
 ```
 
 The npm scripts load `.env` automatically. Re-running is safe: each text is
 upserted on its `source_url` and its chunks are replaced, so you never get
 duplicates.
+
+`--skip-embeddings` and `backfill:embeddings` split the run into two phases so
+embedding is decoupled from scraping — load text/chunks now (even if the source
+site is unreachable or OpenAI is unfunded), then backfill vectors later.
+`backfill:embeddings` only ever touches chunks whose `embedding IS NULL`, so it
+is safe to re-run and resumes cleanly after an interruption.
 
 ## What ends up in the database
 
@@ -86,8 +94,10 @@ Search helpers: `akst_search_similar_chunks()` (vector), `akst_search_texts()`
 
 ## Automation
 
-`.github/workflows/ingest.yml` runs ingestion weekly and on demand. Configure
-these repo secrets: `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `OPENAI_API_KEY`.
+`.github/workflows/ingest.yml` runs ingestion weekly and on demand, and
+`.github/workflows/backfill-embeddings.yml` embeds already-stored chunks on
+demand. Configure these repo secrets: `SUPABASE_URL`,
+`SUPABASE_SERVICE_ROLE_KEY`, `OPENAI_API_KEY`.
 
 ## Security notes
 
