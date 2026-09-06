@@ -1,4 +1,4 @@
-import { assertEquals, assert } from "jsr:@std/assert@1";
+import { assert, assertEquals } from "jsr:@std/assert@1";
 import { buildOracleV1, ORACLE_CONTRACT_VERSION } from "./oracle-contract.ts";
 
 Deno.test("oracle.v1 normalizes a three-well grounded response", () => {
@@ -10,22 +10,65 @@ Deno.test("oracle.v1 normalizes a three-well grounded response", () => {
     answerMode: "generated_grounded",
     generationProvider: "lovable",
     legacyEvidenceState: "three_well",
-    grimoire: { status: "grounded", hits: [{ id: "g1", title: "Rose", excerpt: "A correspondence", score: 3 }] },
-    ancient: { status: "grounded", retrieval_mode: "native_vector", vector_status: "ready", hits: [{ id: "a1", text_id: "t1", title: "Ancient Text", excerpt: "Ancient passage", content_tier: "A", rights_status: "public_domain", score: 0.81 }] },
-    sacredWritings: { status: "grounded", retrieval_mode: "native_vector", vector_status: "ready", hits: [{ id: "s1", page_id: "p1", title: "Sacred Writing", excerpt: "Living voice", tier: "A", standpoint: "andre_standpoint", score: 0.77 }] },
+    grimoire: {
+      status: "grounded",
+      hits: [{
+        id: "g1",
+        title: "Rose",
+        excerpt: "A correspondence",
+        score: 3,
+      }],
+    },
+    ancient: {
+      status: "grounded",
+      retrieval_mode: "native_vector",
+      vector_status: "ready",
+      hits: [{
+        id: "a1",
+        text_id: "t1",
+        title: "Ancient Text",
+        excerpt: "Ancient passage",
+        content_tier: "A",
+        rights_status: "public_domain",
+        score: 0.81,
+      }],
+    },
+    sacredWritings: {
+      status: "grounded",
+      retrieval_mode: "native_vector",
+      vector_status: "ready",
+      hits: [{
+        id: "s1",
+        page_id: "p1",
+        title: "Sacred Writing",
+        excerpt: "Living voice",
+        tier: "A",
+        standpoint: "andre_standpoint",
+        score: 0.77,
+      }],
+    },
     citations: [
       { label: "G1", well: "grimoire", title: "Rose" },
       { label: "A1", well: "akst_ancient", title: "Ancient Text" },
       { label: "S1", well: "sacred_writings", title: "Sacred Writing" },
     ],
     lawsApplied: ["No fabrication"],
-    legacyRetrieval: { asking_point: "oracle-query", embedding_model: "gte-small", embedding_dimensions: 384, embedding_count: 1 },
+    legacyRetrieval: {
+      asking_point: "oracle-query",
+      embedding_model: "gte-small",
+      embedding_dimensions: 384,
+      embedding_count: 1,
+    },
   });
 
   assertEquals(result.contract_version, ORACLE_CONTRACT_VERSION);
   assertEquals(result.state, "grounded");
   assertEquals(result.evidence_units.length, 3);
-  assertEquals(result.retrieval.wells_returned, ["grimoire", "akst_ancient", "sacred_writings"]);
+  assertEquals(result.retrieval.wells_returned, [
+    "grimoire",
+    "akst_ancient",
+    "sacred_writings",
+  ]);
   assertEquals(result.retrieval.embedding_model, "gte-small");
   assertEquals(result.diagnostics?.asking_point, "oracle-query");
 });
@@ -38,7 +81,11 @@ Deno.test("oracle.v1 preserves partial evidence without overstating grounding", 
     answerMode: "evidence_only",
     legacyEvidenceState: "partial",
     grimoire: { status: "empty", hits: [] },
-    ancient: { status: "grounded", retrieval_mode: "lexical", hits: [{ id: "a1", title: "Text", excerpt: "Passage" }] },
+    ancient: {
+      status: "grounded",
+      retrieval_mode: "lexical",
+      hits: [{ id: "a1", title: "Text", excerpt: "Passage" }],
+    },
     sacredWritings: { status: "empty", hits: [] },
     citations: [{ label: "A1", well: "akst_ancient", title: "Text" }],
     lawsApplied: ["No fabrication"],
@@ -57,7 +104,12 @@ Deno.test("oracle.v1 marks well errors as degraded when evidence still exists", 
     answerMode: "evidence_only",
     legacyEvidenceState: "partial",
     grimoire: { status: "error", hits: [] },
-    ancient: { status: "grounded", retrieval_mode: "lexical", vector_status: "vector_error", hits: [{ id: "a1", title: "Text", excerpt: "Passage" }] },
+    ancient: {
+      status: "grounded",
+      retrieval_mode: "lexical",
+      vector_status: "vector_error",
+      hits: [{ id: "a1", title: "Text", excerpt: "Passage" }],
+    },
     sacredWritings: { status: "empty", hits: [] },
     citations: [{ label: "A1", well: "akst_ancient", title: "Text" }],
     lawsApplied: ["No fabrication"],
@@ -65,7 +117,9 @@ Deno.test("oracle.v1 marks well errors as degraded when evidence still exists", 
 
   assertEquals(result.state, "degraded");
   assert(result.retrieval.degraded_reasons.includes("well_error:grimoire"));
-  assert(result.retrieval.degraded_reasons.includes("vector_error:akst_ancient"));
+  assert(
+    result.retrieval.degraded_reasons.includes("vector_error:akst_ancient"),
+  );
 });
 
 Deno.test("oracle.v1 keeps empty evidence insufficient even when a well reports an error", () => {
@@ -93,15 +147,24 @@ Deno.test("luminaria surface publishes explicit client restrictions", () => {
     answer: "Reflection",
     answerMode: "evidence_only",
     legacyEvidenceState: "partial",
-    grimoire: { status: "grounded", hits: [{ id: "g1", title: "Rose", excerpt: "Correspondence" }] },
+    grimoire: {
+      status: "grounded",
+      hits: [{ id: "g1", title: "Rose", excerpt: "Correspondence" }],
+    },
     ancient: { status: "empty", hits: [] },
     sacredWritings: { status: "empty", hits: [] },
     citations: [{ label: "G1", well: "grimoire", title: "Rose" }],
     lawsApplied: ["Non-Imposition"],
   });
 
-  assert(result.policy.surface_restrictions.includes("exclude_sacred_writings_tier_b"));
-  assert(result.policy.surface_restrictions.includes("no_diagnosis_or_treatment"));
+  assert(
+    result.policy.surface_restrictions.includes(
+      "exclude_sacred_writings_tier_b",
+    ),
+  );
+  assert(
+    result.policy.surface_restrictions.includes("no_diagnosis_or_treatment"),
+  );
 });
 
 Deno.test("oracle.v1 preserves legacy retrieval metadata during additive migration", () => {
@@ -111,7 +174,10 @@ Deno.test("oracle.v1 preserves legacy retrieval metadata during additive migrati
     answer: "Answer",
     answerMode: "evidence_only",
     legacyEvidenceState: "partial",
-    grimoire: { status: "grounded", hits: [{ id: "g1", title: "Rose", excerpt: "Correspondence" }] },
+    grimoire: {
+      status: "grounded",
+      hits: [{ id: "g1", title: "Rose", excerpt: "Correspondence" }],
+    },
     ancient: { status: "empty", hits: [] },
     sacredWritings: { status: "empty", hits: [] },
     citations: [{ label: "G1", well: "grimoire", title: "Rose" }],
@@ -138,8 +204,24 @@ Deno.test("akst learning scope can be grounded by the ancient well alone", () =>
     answerMode: "evidence_only",
     legacyEvidenceState: "partial",
     grimoire: { status: "skipped", retrieval_mode: "not_queried", hits: [] },
-    ancient: { status: "grounded", retrieval_mode: "native_vector", vector_status: "ready", hits: [{ id: "a1", text_id: "t1", title: "Ancient Text", excerpt: "Passage", content_tier: "A", rights_status: "public_domain" }] },
-    sacredWritings: { status: "skipped", retrieval_mode: "not_queried", hits: [] },
+    ancient: {
+      status: "grounded",
+      retrieval_mode: "native_vector",
+      vector_status: "ready",
+      hits: [{
+        id: "a1",
+        text_id: "t1",
+        title: "Ancient Text",
+        excerpt: "Passage",
+        content_tier: "A",
+        rights_status: "public_domain",
+      }],
+    },
+    sacredWritings: {
+      status: "skipped",
+      retrieval_mode: "not_queried",
+      hits: [],
+    },
     citations: [{ label: "A1", well: "akst_ancient", title: "Ancient Text" }],
     lawsApplied: ["No fabrication"],
     wellsQueried: ["akst_ancient"],
@@ -149,5 +231,9 @@ Deno.test("akst learning scope can be grounded by the ancient well alone", () =>
   assertEquals(result.retrieval.wells_queried, ["akst_ancient"]);
   assertEquals(result.retrieval.wells_returned, ["akst_ancient"]);
   assertEquals(result.retrieval.methods, ["native_vector"]);
-  assert(result.policy.surface_restrictions.includes("rights_cleared_ancient_texts_only"));
+  assert(
+    result.policy.surface_restrictions.includes(
+      "rights_cleared_ancient_texts_only",
+    ),
+  );
 });

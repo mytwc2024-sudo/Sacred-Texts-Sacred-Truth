@@ -1,10 +1,14 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 import postgres from "npm:postgres@3.4.4";
-import { buildOracleV1, type OracleResponseV1 } from "../_shared/oracle-contract.ts";
+import {
+  buildOracleV1,
+  type OracleResponseV1,
+} from "../_shared/oracle-contract.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Headers":
+    "authorization, x-client-info, apikey, content-type",
   "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
 
@@ -15,7 +19,8 @@ const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
 const ORACLE_QUERY_URL = `${SUPABASE_URL}/functions/v1/oracle-query`;
 
 function serviceKey() {
-  const legacy = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || Deno.env.get("SUPABASE_SECRET_KEY");
+  const legacy = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ||
+    Deno.env.get("SUPABASE_SECRET_KEY");
   if (legacy) return legacy;
   try {
     const keys = JSON.parse(Deno.env.get("SUPABASE_SECRET_KEYS") || "{}");
@@ -63,36 +68,51 @@ type RetrievalResult = {
 const allowedModes = new Set(["explain", "discuss", "quiz"]);
 
 Deno.serve(async (req) => {
-  if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
+  if (req.method === "OPTIONS") {
+    return new Response("ok", { headers: corsHeaders });
+  }
   if (req.method !== "POST") return json({ error: "POST required" }, 405);
 
   try {
     const body = await req.json();
-    const question = typeof body.question === "string" ? body.question.trim() : "";
+    const question = typeof body.question === "string"
+      ? body.question.trim()
+      : "";
     if (!question) return json({ error: "question is required" }, 400);
 
     const sk = serviceKey();
     if (!sk) return json({ error: "AKST service key unavailable" }, 503);
-    const db = createClient(SUPABASE_URL, sk, { auth: { persistSession: false } });
+    const db = createClient(SUPABASE_URL, sk, {
+      auth: { persistSession: false },
+    });
 
     const learningContext: LearningContext | undefined = body.learning_context;
-    const learningMode = allowedModes.has(body.learning_mode) ? body.learning_mode : "explain";
-    const learningInstruction = typeof body.learning_instruction === "string" ? body.learning_instruction.slice(0, 1000) : "";
+    const learningMode = allowedModes.has(body.learning_mode)
+      ? body.learning_mode
+      : "explain";
+    const learningInstruction = typeof body.learning_instruction === "string"
+      ? body.learning_instruction.slice(0, 1000)
+      : "";
     const contextTerms = [
       learningContext?.title,
       learningContext?.focus,
       ...(learningContext?.texts || []),
       ...(learningContext?.traditions || []),
     ].filter(Boolean).join(" ");
-    const retrievalInput = contextTerms ? `${question}\nLearning context: ${contextTerms}` : question;
+    const retrievalInput = contextTerms
+      ? `${question}\nLearning context: ${contextTerms}`
+      : question;
 
     let retrieval = await retrieveViaOracle(db, retrievalInput);
     if (!retrieval) retrieval = await retrieveLegacy(db, retrievalInput);
-    if (retrieval.failed) return json({ error: "AKST retrieval unavailable" }, 503);
+    if (retrieval.failed) {
+      return json({ error: "AKST retrieval unavailable" }, 503);
+    }
     const sources = retrieval.sources;
 
     if (!sources.length) {
-      const gapAnswer = "I couldn't find rights-cleared AKST passages that support an answer yet. The gap is being stated rather than filled with generated source claims.";
+      const gapAnswer =
+        "I couldn't find rights-cleared AKST passages that support an answer yet. The gap is being stated rather than filled with generated source claims.";
       const oracleV1 = buildLearningOracleV1({
         question,
         retrievalInput,
@@ -101,7 +121,8 @@ Deno.serve(async (req) => {
         generationProvider: "none",
         evidenceState: "insufficient",
         retrievalPath: retrieval.path,
-        retrievalMethod: retrieval.oracle?.retrieval.methods?.[0] || "evidence_only",
+        retrievalMethod: retrieval.oracle?.retrieval.methods?.[0] ||
+          "evidence_only",
       });
       return json({
         answer: gapAnswer,
@@ -115,19 +136,36 @@ Deno.serve(async (req) => {
     }
 
     const sourceContext = sources.map((s: AskSource, i: number) => {
-      const loc = [s.chapter_title, s.section_title, s.verse_number].filter(Boolean).join(" · ");
-      return `[${i + 1}] ${s.title}${s.author ? ` — ${s.author}` : ""}${loc ? ` (${loc})` : ""}\n${s.excerpt}`;
+      const loc = [s.chapter_title, s.section_title, s.verse_number].filter(
+        Boolean,
+      ).join(" · ");
+      return `[${i + 1}] ${s.title}${s.author ? ` — ${s.author}` : ""}${
+        loc ? ` (${loc})` : ""
+      }\n${s.excerpt}`;
     }).join("\n\n");
 
-    const courseContext = learningContext ? `\nACTIVE LEARNING CONTEXT:\nModule/Path: ${learningContext.id || ""} ${learningContext.title || ""}\nFocus: ${learningContext.focus || ""}\nDescription: ${learningContext.description || ""}\nNamed texts: ${(learningContext.texts || []).join(", ")}\nTraditions: ${(learningContext.traditions || []).join(", ")}\nLearning outcomes: ${(learningContext.outcomes || []).join("; ")}\nLearning mode: ${learningMode}\n` : "";
+    const courseContext = learningContext
+      ? `\nACTIVE LEARNING CONTEXT:\nModule/Path: ${learningContext.id || ""} ${
+        learningContext.title || ""
+      }\nFocus: ${learningContext.focus || ""}\nDescription: ${
+        learningContext.description || ""
+      }\nNamed texts: ${
+        (learningContext.texts || []).join(", ")
+      }\nTraditions: ${
+        (learningContext.traditions || []).join(", ")
+      }\nLearning outcomes: ${
+        (learningContext.outcomes || []).join("; ")
+      }\nLearning mode: ${learningMode}\n`
+      : "";
 
     const pedagogy = learningMode === "quiz"
       ? "Give one comprehension question at a time. When the learner answers, explain what is supported by the sources and what needs correction."
       : learningMode === "discuss"
-        ? "Teach conversationally and Socratically while separating source claims from interpretation."
-        : "Teach clearly in layers: plain-language explanation, source-grounded detail, then comparison only when supported.";
+      ? "Teach conversationally and Socratically while separating source claims from interpretation."
+      : "Teach clearly in layers: plain-language explanation, source-grounded detail, then comparison only when supported.";
 
-    const systemPrompt = `You are the AKST Learning Guide. Use ONLY the numbered rights-cleared AKST passages below for factual or historical claims. Cite claims inline with [1], [2], etc. Never invent quotations, translations, doctrines, traditions, lineages, dates, or source content. If evidence is insufficient or sources disagree, say so. Spiritual/metaphysical claims must be framed as tradition or interpretation, not established science or medical advice. ${pedagogy} ${learningInstruction}${courseContext}\nSOURCES:\n${sourceContext}`;
+    const systemPrompt =
+      `You are the AKST Learning Guide. Use ONLY the numbered rights-cleared AKST passages below for factual or historical claims. Cite claims inline with [1], [2], etc. Never invent quotations, translations, doctrines, traditions, lineages, dates, or source content. If evidence is insufficient or sources disagree, say so. Spiritual/metaphysical claims must be framed as tradition or interpretation, not established science or medical advice. ${pedagogy} ${learningInstruction}${courseContext}\nSOURCES:\n${sourceContext}`;
     const messages = [
       { role: "system", content: systemPrompt },
       ...(Array.isArray(body.history) ? body.history.slice(-8) : []),
@@ -137,11 +175,20 @@ Deno.serve(async (req) => {
     let answer = "";
     let generationProvider = "none";
     if (LOVABLE_API_KEY) {
-      const r = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-        method: "POST",
-        headers: { Authorization: `Bearer ${LOVABLE_API_KEY}`, "Content-Type": "application/json" },
-        body: JSON.stringify({ model: "google/gemini-3-flash-preview", messages }),
-      });
+      const r = await fetch(
+        "https://ai.gateway.lovable.dev/v1/chat/completions",
+        {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${LOVABLE_API_KEY}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            model: "google/gemini-3-flash-preview",
+            messages,
+          }),
+        },
+      );
       if (r.ok) {
         answer = (await r.json()).choices?.[0]?.message?.content || "";
         if (answer) generationProvider = "lovable";
@@ -150,13 +197,20 @@ Deno.serve(async (req) => {
     if (!answer && OPENAI_API_KEY) {
       const r = await fetch("https://api.openai.com/v1/chat/completions", {
         method: "POST",
-        headers: { Authorization: `Bearer ${OPENAI_API_KEY}`, "Content-Type": "application/json" },
+        headers: {
+          Authorization: `Bearer ${OPENAI_API_KEY}`,
+          "Content-Type": "application/json",
+        },
         body: JSON.stringify({ model: "gpt-4o-mini", messages }),
       });
       if (r.ok) {
         answer = (await r.json()).choices?.[0]?.message?.content || "";
         if (answer) generationProvider = "openai";
-      } else console.error("OpenAI generation failed", r.status, await r.text());
+      } else {console.error(
+          "OpenAI generation failed",
+          r.status,
+          await r.text(),
+        );}
     }
     if (!answer) return json({ error: "AI provider unavailable" }, 503);
 
@@ -192,13 +246,23 @@ Deno.serve(async (req) => {
     });
   } catch (error) {
     console.error("ask-akst error", error);
-    return json({ error: error instanceof Error ? error.message : String(error) }, 500);
+    return json({
+      error: error instanceof Error ? error.message : String(error),
+    }, 500);
   }
 });
 
-async function retrieveViaOracle(db: ReturnType<typeof createClient>, retrievalInput: string): Promise<RetrievalResult | null> {
+async function retrieveViaOracle(
+  db: ReturnType<typeof createClient>,
+  retrievalInput: string,
+): Promise<RetrievalResult | null> {
   if (!SUPABASE_DB_URL) return null;
-  const sql = postgres(SUPABASE_DB_URL, { prepare: true, max: 1, idle_timeout: 5, connect_timeout: 10 });
+  const sql = postgres(SUPABASE_DB_URL, {
+    prepare: true,
+    max: 1,
+    idle_timeout: 5,
+    connect_timeout: 10,
+  });
   try {
     const rows = await sql<{ secret: string }[]>`
       select decrypted_secret as secret
@@ -211,8 +275,15 @@ async function retrieveViaOracle(db: ReturnType<typeof createClient>, retrievalI
 
     const response = await fetch(ORACLE_QUERY_URL, {
       method: "POST",
-      headers: { "Content-Type": "application/json", "x-oracle-transport-secret": secret },
-      body: JSON.stringify({ question: retrievalInput, surface: "akst_learning", evidence_only: true }),
+      headers: {
+        "Content-Type": "application/json",
+        "x-oracle-transport-secret": secret,
+      },
+      body: JSON.stringify({
+        question: retrievalInput,
+        surface: "akst_learning",
+        evidence_only: true,
+      }),
     });
     if (!response.ok) {
       console.error("ask-akst oracle core unavailable", response.status);
@@ -221,24 +292,41 @@ async function retrieveViaOracle(db: ReturnType<typeof createClient>, retrievalI
     const data = await response.json().catch(() => null);
     if (!isOracleV1(data)) return null;
     if (!data.retrieval.wells_queried.includes("akst_ancient")) return null;
-    if (data.retrieval.wells_queried.some((well) => well !== "akst_ancient")) return null;
+    if (data.retrieval.wells_queried.some((well) => well !== "akst_ancient")) {
+      return null;
+    }
 
-    const ancient = data.evidence_units.filter((unit) => unit.well === "akst_ancient");
-    const ids = ancient.map((unit) => unit.source_id).filter((id): id is string => Boolean(id));
+    const ancient = data.evidence_units.filter((unit) =>
+      unit.well === "akst_ancient"
+    );
+    const ids = ancient.map((unit) => unit.source_id).filter((
+      id,
+    ): id is string => Boolean(id));
     let detailMap = new Map<string, any>();
     if (ids.length) {
       const { data: details, error } = await db
         .from("akst_publishable_chunks")
-        .select("chunk_id,text_id,chunk_index,content,chapter_title,section_title,verse_number,word_count,text_title,author,translator,content_tier,rights_status,source_name,source_url")
+        .select(
+          "chunk_id,text_id,chunk_index,content,chapter_title,section_title,verse_number,word_count,text_title,author,translator,content_tier,rights_status,source_name,source_url",
+        )
         .in("chunk_id", ids);
       if (error) console.error("ask-akst Oracle source enrichment", error);
-      else detailMap = new Map((details || []).map((row: any) => [String(row.chunk_id), row]));
+      else {detailMap = new Map(
+          (details || []).map((row: any) => [String(row.chunk_id), row]),
+        );}
     }
 
     const sources: AskSource[] = ancient
-      .filter((unit) => unit.content_tier === "A" && ["public_domain", "own_ip", "licensed"].includes(unit.rights_status || ""))
+      .filter((unit) =>
+        unit.content_tier === "A" &&
+        ["public_domain", "own_ip", "licensed"].includes(
+          unit.rights_status || "",
+        )
+      )
       .map((unit) => {
-        const detail = unit.source_id ? detailMap.get(unit.source_id) : undefined;
+        const detail = unit.source_id
+          ? detailMap.get(unit.source_id)
+          : undefined;
         return {
           id: unit.source_id || unit.id,
           text_id: detail?.text_id || unit.parent_source_id || null,
@@ -267,20 +355,40 @@ async function retrieveViaOracle(db: ReturnType<typeof createClient>, retrievalI
   }
 }
 
-async function retrieveLegacy(db: ReturnType<typeof createClient>, retrievalInput: string): Promise<RetrievalResult> {
-  if (!OPENAI_API_KEY) return { sources: [], path: "legacy_unavailable", failed: true };
-  const embeddingResponse = await fetch("https://api.openai.com/v1/embeddings", {
-    method: "POST",
-    headers: { Authorization: `Bearer ${OPENAI_API_KEY}`, "Content-Type": "application/json" },
-    body: JSON.stringify({ model: "text-embedding-3-small", input: retrievalInput }),
-  });
+async function retrieveLegacy(
+  db: ReturnType<typeof createClient>,
+  retrievalInput: string,
+): Promise<RetrievalResult> {
+  if (!OPENAI_API_KEY) {
+    return { sources: [], path: "legacy_unavailable", failed: true };
+  }
+  const embeddingResponse = await fetch(
+    "https://api.openai.com/v1/embeddings",
+    {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${OPENAI_API_KEY}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model: "text-embedding-3-small",
+        input: retrievalInput,
+      }),
+    },
+  );
   if (!embeddingResponse.ok) {
-    console.error("embedding failed", embeddingResponse.status, await embeddingResponse.text());
+    console.error(
+      "embedding failed",
+      embeddingResponse.status,
+      await embeddingResponse.text(),
+    );
     return { sources: [], path: "legacy_embedding_unavailable", failed: true };
   }
   const embeddingPayload = await embeddingResponse.json();
   const embedding = embeddingPayload?.data?.[0]?.embedding;
-  if (!Array.isArray(embedding) || embedding.length !== 1536) return { sources: [], path: "legacy_embedding_mismatch", failed: true };
+  if (!Array.isArray(embedding) || embedding.length !== 1536) {
+    return { sources: [], path: "legacy_embedding_mismatch", failed: true };
+  }
 
   const { data: matches, error: matchError } = await db.rpc("match_chunks", {
     query_embedding: embedding,
@@ -344,30 +452,57 @@ function buildLearningOracleV1(args: {
     generationProvider: args.generationProvider,
     legacyEvidenceState: args.evidenceState,
     grimoire: { status: "skipped", retrieval_mode: "not_queried", hits: [] },
-    ancient: { status: args.sources.length ? "grounded" : "empty", retrieval_mode: args.retrievalMethod, hits: ancientHits },
-    sacredWritings: { status: "skipped", retrieval_mode: "not_queried", hits: [] },
-    citations: args.sources.map((source, index) => ({ label: `A${index + 1}`, well: "akst_ancient", title: source.title, url: source.source_url })),
+    ancient: {
+      status: args.sources.length ? "grounded" : "empty",
+      retrieval_mode: args.retrievalMethod,
+      hits: ancientHits,
+    },
+    sacredWritings: {
+      status: "skipped",
+      retrieval_mode: "not_queried",
+      hits: [],
+    },
+    citations: args.sources.map((source, index) => ({
+      label: `A${index + 1}`,
+      well: "akst_ancient",
+      title: source.title,
+      url: source.source_url,
+    })),
     lawsApplied: ["No fabrication", "Rights-cleared source boundary"],
-    legacyRetrieval: { asking_point: "ask-akst", retrieval_path: args.retrievalPath },
+    legacyRetrieval: {
+      asking_point: "ask-akst",
+      retrieval_path: args.retrievalPath,
+    },
     traceId: crypto.randomUUID(),
     wellsQueried: ["akst_ancient"],
   });
 }
 
-function withLearningQuery(oracle: OracleResponseV1, question: string, retrievalInput: string): OracleResponseV1 {
+function withLearningQuery(
+  oracle: OracleResponseV1,
+  question: string,
+  retrievalInput: string,
+): OracleResponseV1 {
   return {
     ...oracle,
-    query: { original: question, normalized: retrievalInput, surface: "akst_learning" },
+    query: {
+      original: question,
+      normalized: retrievalInput,
+      surface: "akst_learning",
+    },
   };
 }
 
 function isOracleV1(value: any): value is OracleResponseV1 {
-  return value?.contract_version === "oracle.v1"
-    && value?.query?.surface === "akst_learning"
-    && Array.isArray(value?.evidence_units)
-    && Array.isArray(value?.retrieval?.wells_queried);
+  return value?.contract_version === "oracle.v1" &&
+    value?.query?.surface === "akst_learning" &&
+    Array.isArray(value?.evidence_units) &&
+    Array.isArray(value?.retrieval?.wells_queried);
 }
 
 function json(body: unknown, status = 200) {
-  return new Response(JSON.stringify(body), { status, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: { ...corsHeaders, "Content-Type": "application/json" },
+  });
 }

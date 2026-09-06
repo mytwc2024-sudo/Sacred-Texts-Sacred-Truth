@@ -111,7 +111,9 @@ export type OracleV1BuildInput = {
 };
 
 export function buildOracleV1(input: OracleV1BuildInput): OracleResponseV1 {
-  const wellsQueried = input.wellsQueried?.length ? uniqueWells(input.wellsQueried) : [...ALL_WELLS];
+  const wellsQueried = input.wellsQueried?.length
+    ? uniqueWells(input.wellsQueried)
+    : [...ALL_WELLS];
   const degradedReasons = collectDegradedReasons(input, wellsQueried);
   const evidenceUnits = [
     ...normalizeGrimoire(input.grimoire),
@@ -119,8 +121,18 @@ export function buildOracleV1(input: OracleV1BuildInput): OracleResponseV1 {
     ...normalizeSacred(input.sacredWritings),
   ];
   const wellsReturned = uniqueWells(evidenceUnits.map((unit) => unit.well));
-  const state = deriveState(input.legacyEvidenceState, degradedReasons, evidenceUnits.length, wellsQueried, wellsReturned);
-  const methods = uniqueStrings(wellsQueried.map((well) => methodFor(resultForWell(input, well), "lexical")));
+  const state = deriveState(
+    input.legacyEvidenceState,
+    degradedReasons,
+    evidenceUnits.length,
+    wellsQueried,
+    wellsReturned,
+  );
+  const methods = uniqueStrings(
+    wellsQueried.map((well) =>
+      methodFor(resultForWell(input, well), "lexical")
+    ),
+  );
 
   return {
     contract_version: ORACLE_CONTRACT_VERSION,
@@ -141,7 +153,9 @@ export function buildOracleV1(input: OracleV1BuildInput): OracleResponseV1 {
       wells_returned: wellsReturned,
       degraded_reasons: degradedReasons,
       embedding_model: asString(input.legacyRetrieval?.embedding_model),
-      embedding_dimensions: asNumber(input.legacyRetrieval?.embedding_dimensions),
+      embedding_dimensions: asNumber(
+        input.legacyRetrieval?.embedding_dimensions,
+      ),
       embedding_count: asNumber(input.legacyRetrieval?.embedding_count),
     },
     policy: {
@@ -164,29 +178,45 @@ function deriveState(
   wellsReturned: OracleWell[],
 ): OracleState {
   if (legacy === "insufficient" || evidenceCount === 0) return "insufficient";
-  if (degradedReasons.some((reason) => reason.startsWith("well_error:"))) return "degraded";
-  if (wellsQueried.every((well) => wellsReturned.includes(well))) return "grounded";
+  if (degradedReasons.some((reason) => reason.startsWith("well_error:"))) {
+    return "degraded";
+  }
+  if (wellsQueried.every((well) => wellsReturned.includes(well))) {
+    return "grounded";
+  }
   return "partial";
 }
 
-function collectDegradedReasons(input: OracleV1BuildInput, wellsQueried: OracleWell[]) {
+function collectDegradedReasons(
+  input: OracleV1BuildInput,
+  wellsQueried: OracleWell[],
+) {
   const reasons: string[] = [];
   for (const well of wellsQueried) {
     const result = resultForWell(input, well);
     if (result.status === "error") reasons.push(`well_error:${well}`);
-    if (result.vector_status === "vector_error") reasons.push(`vector_error:${well}`);
-    if (result.vector_status === "unavailable") reasons.push(`vector_unavailable:${well}`);
+    if (result.vector_status === "vector_error") {
+      reasons.push(`vector_error:${well}`);
+    }
+    if (result.vector_status === "unavailable") {
+      reasons.push(`vector_unavailable:${well}`);
+    }
   }
   return uniqueStrings(reasons);
 }
 
-function resultForWell(input: OracleV1BuildInput, well: OracleWell): OracleLegacyWellResult {
+function resultForWell(
+  input: OracleV1BuildInput,
+  well: OracleWell,
+): OracleLegacyWellResult {
   if (well === "grimoire") return input.grimoire;
   if (well === "akst_ancient") return input.ancient;
   return input.sacredWritings;
 }
 
-function normalizeGrimoire(result: OracleLegacyWellResult): OracleEvidenceUnit[] {
+function normalizeGrimoire(
+  result: OracleLegacyWellResult,
+): OracleEvidenceUnit[] {
   return (result.hits ?? []).map((hit, index) => ({
     id: `grimoire:${asString(hit.id) ?? index}`,
     citation_label: `G${index + 1}`,
@@ -200,7 +230,9 @@ function normalizeGrimoire(result: OracleLegacyWellResult): OracleEvidenceUnit[]
   }));
 }
 
-function normalizeAncient(result: OracleLegacyWellResult): OracleEvidenceUnit[] {
+function normalizeAncient(
+  result: OracleLegacyWellResult,
+): OracleEvidenceUnit[] {
   return (result.hits ?? []).map((hit, index) => ({
     id: `ancient:${asString(hit.id) ?? index}`,
     citation_label: `A${index + 1}`,
@@ -255,7 +287,10 @@ function restrictionsFor(surface: OracleSurface) {
     ];
   }
   if (surface === "akst_learning") {
-    return ["rights_cleared_ancient_texts_only", "learning_context_may_refine_retrieval_not_source_rights"];
+    return [
+      "rights_cleared_ancient_texts_only",
+      "learning_context_may_refine_retrieval_not_source_rights",
+    ];
   }
   return [];
 }
