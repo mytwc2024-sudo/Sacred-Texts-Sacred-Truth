@@ -19,6 +19,11 @@ on:
         required: false
         type: boolean
         default: false
+      skip_embeddings:
+        description: 'Store texts + chunks with NULL vectors (no OpenAI calls). Backfill embeddings later.'
+        required: false
+        type: boolean
+        default: false
   schedule:
     - cron: '0 6 * * 1' # Mondays 06:00 UTC
 
@@ -36,7 +41,7 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
           cache: npm
 
       - run: npm ci
@@ -48,8 +53,10 @@ jobs:
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           ONLY: ${{ inputs.only }}
           DRY_RUN: ${{ inputs.dry_run }}
+          SKIP_EMBEDDINGS: ${{ inputs.skip_embeddings }}
         run: |
           FLAGS=()
           if [ "$DRY_RUN" = "true" ]; then FLAGS+=("--dry-run"); fi
+          if [ "$SKIP_EMBEDDINGS" = "true" ]; then FLAGS+=("--skip-embeddings"); fi
           if [ -n "$ONLY" ]; then FLAGS+=("--only" "$ONLY"); fi
           npx tsx src/ingest/index.ts "${FLAGS[@]}"

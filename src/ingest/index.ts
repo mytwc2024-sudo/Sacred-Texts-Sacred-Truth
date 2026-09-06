@@ -12,6 +12,9 @@
  *   npm run ingest:dry        # scrape + chunk only; no OpenAI, no DB writes
  *   npm run list-sources      # print the catalog and exit
  *   npm run ingest -- --only "Tao Te Ching"   # ingest one title
+ *   npm run ingest -- --skip-embeddings        # store texts + chunks with
+ *                                              # NULL vectors (no OpenAI calls);
+ *                                              # backfill embeddings later
  */
 import { config } from '../lib/config.js';
 import { SOURCES } from './sources.js';
@@ -21,6 +24,7 @@ import type { TextSource } from './types.js';
 
 const args = process.argv.slice(2);
 const DRY_RUN = args.includes('--dry-run');
+const SKIP_EMBEDDINGS = args.includes('--skip-embeddings');
 const LIST = args.includes('--list');
 const onlyIdx = args.indexOf('--only');
 const ONLY = onlyIdx !== -1 ? args[onlyIdx + 1] : undefined;
@@ -56,27 +60,33 @@ async function ingestOne(source: TextSource): Promise<void> {
     return;
   }
 
-  // Lazily import modules that require real credentials so --dry-run and
-  // --list work without any secrets configured.
-  const { embedBatch } = await import('../lib/openai.js');
+  // Lazily import the DB layer so --dry-run and --list work without secrets.
+  // The OpenAI module is only imported when we actually embed, so
+  // --skip-embeddings runs even with an unfunded/absent OPENAI_API_KEY.
   const { upsertText, replaceChunks, markComplete, markError } = await import('./store.js');
 
   const textId = await upsertText(source, fullText, wordCount);
   try {
-    // 3. Embed (batch to reduce round-trips).
+    // 3. Embed (batch to reduce round-trips), unless embeddings are skipped.
     const embeddings: number[][] = [];
-    const BATCH = 96;
-    for (let i = 0; i < chunks.length; i += BATCH) {
-      const slice = chunks.slice(i, i + BATCH);
-      const vectors = await embedBatch(slice.map((c) => c.content));
-      embeddings.push(...vectors);
-      log(`  embedded ${Math.min(i + BATCH, chunks.length)}/${chunks.length}`);
+    if (SKIP_EMBEDDINGS) {
+      log('  [skip-embeddings] storing chunks with NULL vectors (backfill later)');
+    } else {
+      const { embedBatch } = await import('../lib/openai.js');
+      const BATCH = 96;
+      for (let i = 0; i < chunks.length; i += BATCH) {
+        const slice = chunks.slice(i, i + BATCH);
+        const vectors = await embedBatch(slice.map((c) => c.content));
+        embeddings.push(...vectors);
+        log(`  embedded ${Math.min(i + BATCH, chunks.length)}/${chunks.length}`);
+      }
     }
 
-    // 4. Store chunks + finalize.
+    // 4. Store chunks + finalize. With --skip-embeddings, `embeddings` is empty
+    // and replaceChunks writes NULL for every chunk's vector.
     await replaceChunks(textId, chunks, embeddings);
     await markComplete(textId, chunks.length);
-    log(`  ✓ stored ${chunks.length} chunks`);
+    log(`  ✓ stored ${chunks.length} chunks${SKIP_EMBEDDINGS ? ' (no embeddings)' : ''}`);
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     await markError(textId, message);
@@ -96,7 +106,8 @@ async function main(): Promise<void> {
     throw new Error(`No source matched --only "${ONLY}". Try: npm run list-sources`);
   }
 
-  log(`${DRY_RUN ? '[dry-run] ' : ''}ingesting ${queue.length} text(s)`);
+  const mode = DRY_RUN ? '[dry-run] ' : SKIP_EMBEDDINGS ? '[skip-embeddings] ' : '';
+  log(`${mode}ingesting ${queue.length} text(s)`);
   let ok = 0;
   const failures: string[] = [];
 
