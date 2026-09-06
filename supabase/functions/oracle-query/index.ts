@@ -1,6 +1,6 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 import postgres from "npm:postgres@3.4.4";
-import { buildOracleV1, type OracleCitation, type OracleSurface } from "../_shared/oracle-contract.ts";
+import { buildOracleV1, type OracleCitation, type OracleSurface, type OracleWell } from "../_shared/oracle-contract.ts";
 
 const CORS = {
   "Access-Control-Allow-Origin": "*",
@@ -12,7 +12,7 @@ const SUPABASE_DB_URL = Deno.env.get("SUPABASE_DB_URL")!;
 const OPENAI_API_KEY = Deno.env.get("OPENAI_API_KEY");
 const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
 
-type Surface = Extract<OracleSurface, "internal" | "ankhor_internal" | "luminaria_client">;
+type Surface = OracleSurface;
 
 type NativeEmbedding = {
   vector: number[] | null;
@@ -33,9 +33,12 @@ Deno.serve(async (req: Request) => {
     const question = typeof body?.question === "string" ? body.question.trim() : "";
     const surface: Surface = body?.surface === "luminaria_client"
       ? "luminaria_client"
-      : body?.surface === "ankhor_internal"
-        ? "ankhor_internal"
-        : "internal";
+      : body?.surface === "akst_learning"
+        ? "akst_learning"
+        : body?.surface === "ankhor_internal"
+          ? "ankhor_internal"
+          : "internal";
+    const forceEvidenceOnly = body?.evidence_only === true;
 
     if (!question) return json({ error: "question is required" }, 400);
     if (question.length > 4000) return json({ error: "question is too long" }, 400);
@@ -45,11 +48,14 @@ Deno.serve(async (req: Request) => {
     const db = createClient(SUPABASE_URL, key, { auth: { persistSession: false } });
     const searchText = expandQuestion(question);
     const embedding = await nativeEmbed(question);
+    const wellsQueried: OracleWell[] = surface === "akst_learning"
+      ? ["akst_ancient"]
+      : ["grimoire", "akst_ancient", "sacred_writings"];
 
     const [grimoire, akst, sacred] = await Promise.all([
-      getGrimoire(db, searchText, surface),
+      wellsQueried.includes("grimoire") ? getGrimoire(db, searchText, surface) : Promise.resolve(skippedWell()),
       getAncient(db, searchText, embedding),
-      getSacred(db, searchText, embedding, surface),
+      wellsQueried.includes("sacred_writings") ? getSacred(db, searchText, embedding, surface) : Promise.resolve(skippedWell()),
     ]);
 
     const activeWells = [grimoire.hits.length, akst.hits.length, sacred.hits.length].filter((count) => count > 0).length;
@@ -66,7 +72,7 @@ Deno.serve(async (req: Request) => {
         standpoint: hit.standpoint,
       })),
     ];
-    const retrieval = retrievalMetadata(embedding, akst, sacred);
+    const retrieval = retrievalMetadata(embedding, akst, sacred, wellsQueried);
     const lawsApplied = laws();
     const traceId = crypto.randomUUID();
 
@@ -87,6 +93,7 @@ Deno.serve(async (req: Request) => {
         lawsApplied,
         legacyRetrieval: retrieval,
         traceId,
+        wellsQueried,
       });
 
       return json({
@@ -142,7 +149,7 @@ ${grimoireContext || "(none)"}
 5) WELL 3 TIER C — RITE / PRACTICE:
 ${tierC || "(none)"}`;
 
-    const generated = await synthesize(system, question);
+    const generated = forceEvidenceOnly ? { text: "", provider: "none" } : await synthesize(system, question);
     const answer = generated.text || fallback(question, grimoire, akst, sacred);
     const answerMode = generated.text ? "generated_grounded" : "evidence_only";
     const oracleV1 = buildOracleV1({
@@ -160,6 +167,7 @@ ${tierC || "(none)"}`;
       lawsApplied,
       legacyRetrieval: retrieval,
       traceId,
+      wellsQueried,
     });
 
     return json({
@@ -181,13 +189,18 @@ ${tierC || "(none)"}`;
   }
 });
 
-function retrievalMetadata(embedding: NativeEmbedding, akst: any, sacred: any) {
+function skippedWell() {
+  return { status: "skipped", retrieval_mode: "not_queried", hits: [] as any[] };
+}
+
+function retrievalMetadata(embedding: NativeEmbedding, akst: any, sacred: any, wellsQueried: OracleWell[]) {
   return {
     asking_point: "oracle-query",
     embedding_count: embedding.vector ? 1 : 0,
     embedding_status: embedding.status,
     embedding_model: embedding.model,
     embedding_dimensions: embedding.dimensions,
+    requested_wells: wellsQueried,
     well_1: "akst_correspondences — Oracle safety projection",
     well_2: `Tier A only — ${akst.retrieval_mode || "lexical"}; lexical fallback retained`,
     well_3: `sacred_writings_chunks — ${sacred.retrieval_mode || "lexical"}; standpoint-gated; lexical fallback retained`,
