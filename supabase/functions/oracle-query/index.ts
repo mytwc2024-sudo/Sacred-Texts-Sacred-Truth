@@ -1,5 +1,6 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 import postgres from "npm:postgres@3.4.4";
+import { buildOracleV1, type OracleCitation, type OracleSurface } from "../_shared/oracle-contract.ts";
 
 const CORS = {
   "Access-Control-Allow-Origin": "*",
@@ -11,7 +12,7 @@ const SUPABASE_DB_URL = Deno.env.get("SUPABASE_DB_URL")!;
 const OPENAI_API_KEY = Deno.env.get("OPENAI_API_KEY");
 const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
 
-type Surface = "internal" | "ankhor_internal" | "luminaria_client";
+type Surface = Extract<OracleSurface, "internal" | "ankhor_internal" | "luminaria_client">;
 
 type NativeEmbedding = {
   vector: number[] | null;
@@ -53,32 +54,51 @@ Deno.serve(async (req: Request) => {
 
     const activeWells = [grimoire.hits.length, akst.hits.length, sacred.hits.length].filter((count) => count > 0).length;
     const evidenceState = activeWells === 3 ? "three_well" : activeWells > 0 ? "partial" : "insufficient";
-    const citations = [
-      ...grimoire.hits.map((hit: any, index: number) => ({ label: `G${index + 1}`, well: "grimoire", title: hit.title, url: hit.url })),
-      ...akst.hits.map((hit: any, index: number) => ({ label: `A${index + 1}`, well: "akst_ancient", title: hit.title, url: hit.source_url || "" })),
+    const citations: OracleCitation[] = [
+      ...grimoire.hits.map((hit: any, index: number) => ({ label: `G${index + 1}`, well: "grimoire" as const, title: hit.title, url: hit.url })),
+      ...akst.hits.map((hit: any, index: number) => ({ label: `A${index + 1}`, well: "akst_ancient" as const, title: hit.title, url: hit.source_url || "" })),
       ...sacred.hits.map((hit: any, index: number) => ({
         label: `S${index + 1}`,
-        well: "sacred_writings",
+        well: "sacred_writings" as const,
         title: hit.title,
         section_heading: hit.section_heading,
         tier: hit.tier,
         standpoint: hit.standpoint,
       })),
     ];
+    const retrieval = retrievalMetadata(embedding, akst, sacred);
+    const lawsApplied = laws();
+    const traceId = crypto.randomUUID();
 
     if (evidenceState === "insufficient") {
+      const answer = "The Oracle does not yet have enough connected evidence to answer this without inventing material. The gap is being returned explicitly.";
+      const oracleV1 = buildOracleV1({
+        question,
+        normalizedQuery: searchText,
+        surface,
+        answer,
+        answerMode: "evidence_only",
+        generationProvider: "none",
+        legacyEvidenceState: evidenceState,
+        grimoire,
+        ancient: akst,
+        sacredWritings: sacred,
+        citations,
+        lawsApplied,
+        legacyRetrieval: retrieval,
+        traceId,
+      });
+
       return json({
         question,
         surface,
         evidence_state: evidenceState,
-        answer_mode: "evidence_only",
-        answer: "The Oracle does not yet have enough connected evidence to answer this without inventing material. The gap is being returned explicitly.",
+        generation_provider: "none",
         grimoire,
         akst,
         sacred_writings: sacred,
-        citations,
-        laws_applied: laws(),
-        retrieval: retrievalMetadata(embedding, akst, sacred),
+        laws_applied: lawsApplied,
+        ...oracleV1,
       });
     }
 
@@ -124,20 +144,34 @@ ${tierC || "(none)"}`;
 
     const generated = await synthesize(system, question);
     const answer = generated.text || fallback(question, grimoire, akst, sacred);
+    const answerMode = generated.text ? "generated_grounded" : "evidence_only";
+    const oracleV1 = buildOracleV1({
+      question,
+      normalizedQuery: searchText,
+      surface,
+      answer,
+      answerMode,
+      generationProvider: generated.provider,
+      legacyEvidenceState: evidenceState,
+      grimoire,
+      ancient: akst,
+      sacredWritings: sacred,
+      citations,
+      lawsApplied,
+      legacyRetrieval: retrieval,
+      traceId,
+    });
 
     return json({
       question,
       surface,
-      answer,
-      answer_mode: generated.text ? "generated_grounded" : "evidence_only",
       generation_provider: generated.provider,
       evidence_state: evidenceState,
       grimoire,
       akst,
       sacred_writings: sacred,
-      citations,
-      laws_applied: laws(),
-      retrieval: retrievalMetadata(embedding, akst, sacred),
+      laws_applied: lawsApplied,
+      ...oracleV1,
     });
   } catch (error) {
     console.error("oracle-query", error);
