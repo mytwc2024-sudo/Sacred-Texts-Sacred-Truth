@@ -129,3 +129,25 @@ Deno.test("oracle.v1 preserves legacy retrieval metadata during additive migrati
   assertEquals(result.retrieval.runtime_authority, "AKST Supabase");
   assertEquals(result.diagnostics?.asking_point, "oracle-query");
 });
+
+Deno.test("akst learning scope can be grounded by the ancient well alone", () => {
+  const result = buildOracleV1({
+    question: "Question",
+    surface: "akst_learning",
+    answer: "Evidence-only learning response",
+    answerMode: "evidence_only",
+    legacyEvidenceState: "partial",
+    grimoire: { status: "skipped", retrieval_mode: "not_queried", hits: [] },
+    ancient: { status: "grounded", retrieval_mode: "native_vector", vector_status: "ready", hits: [{ id: "a1", text_id: "t1", title: "Ancient Text", excerpt: "Passage", content_tier: "A", rights_status: "public_domain" }] },
+    sacredWritings: { status: "skipped", retrieval_mode: "not_queried", hits: [] },
+    citations: [{ label: "A1", well: "akst_ancient", title: "Ancient Text" }],
+    lawsApplied: ["No fabrication"],
+    wellsQueried: ["akst_ancient"],
+  });
+
+  assertEquals(result.state, "grounded");
+  assertEquals(result.retrieval.wells_queried, ["akst_ancient"]);
+  assertEquals(result.retrieval.wells_returned, ["akst_ancient"]);
+  assertEquals(result.retrieval.methods, ["native_vector"]);
+  assert(result.policy.surface_restrictions.includes("rights_cleared_ancient_texts_only"));
+});
