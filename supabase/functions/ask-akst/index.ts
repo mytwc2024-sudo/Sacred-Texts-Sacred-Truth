@@ -57,6 +57,7 @@ type RetrievalResult = {
   sources: AskSource[];
   path: string;
   oracle?: OracleResponseV1;
+  failed?: boolean;
 };
 
 const allowedModes = new Set(["explain", "discuss", "quiz"]);
@@ -87,25 +88,29 @@ Deno.serve(async (req) => {
 
     let retrieval = await retrieveViaOracle(db, retrievalInput);
     if (!retrieval) retrieval = await retrieveLegacy(db, retrievalInput);
+    if (retrieval.failed) return json({ error: "AKST retrieval unavailable" }, 503);
     const sources = retrieval.sources;
 
     if (!sources.length) {
-      const oracleV1 = retrieval.oracle ?? buildLearningOracleV1({
+      const gapAnswer = "I couldn't find rights-cleared AKST passages that support an answer yet. The gap is being stated rather than filled with generated source claims.";
+      const oracleV1 = buildLearningOracleV1({
         question,
         retrievalInput,
-        answer: "I couldn't find rights-cleared AKST passages that support an answer yet. The gap is being stated rather than filled with generated source claims.",
+        answer: gapAnswer,
         sources,
         generationProvider: "none",
         evidenceState: "insufficient",
+        retrievalPath: retrieval.path,
+        retrievalMethod: retrieval.oracle?.retrieval.methods?.[0] || "evidence_only",
       });
       return json({
-        answer: oracleV1.answer,
+        answer: gapAnswer,
         sources: [],
         evidence_state: "insufficient",
         retrieval: retrieval.path,
         learning_mode: learningMode,
         learning_context: learningContext?.id || null,
-        oracle_v1: withLearningQuery(oracleV1, question, retrievalInput),
+        oracle_v1: oracleV1,
       });
     }
 
@@ -172,6 +177,8 @@ Deno.serve(async (req) => {
         sources,
         generationProvider,
         evidenceState: "partial",
+        retrievalPath: retrieval.path,
+        retrievalMethod: "legacy_vector",
       });
 
     return json({
@@ -261,7 +268,7 @@ async function retrieveViaOracle(db: ReturnType<typeof createClient>, retrievalI
 }
 
 async function retrieveLegacy(db: ReturnType<typeof createClient>, retrievalInput: string): Promise<RetrievalResult> {
-  if (!OPENAI_API_KEY) return { sources: [], path: "legacy_unavailable" };
+  if (!OPENAI_API_KEY) return { sources: [], path: "legacy_unavailable", failed: true };
   const embeddingResponse = await fetch("https://api.openai.com/v1/embeddings", {
     method: "POST",
     headers: { Authorization: `Bearer ${OPENAI_API_KEY}`, "Content-Type": "application/json" },
@@ -269,11 +276,11 @@ async function retrieveLegacy(db: ReturnType<typeof createClient>, retrievalInpu
   });
   if (!embeddingResponse.ok) {
     console.error("embedding failed", embeddingResponse.status, await embeddingResponse.text());
-    return { sources: [], path: "legacy_embedding_unavailable" };
+    return { sources: [], path: "legacy_embedding_unavailable", failed: true };
   }
   const embeddingPayload = await embeddingResponse.json();
   const embedding = embeddingPayload?.data?.[0]?.embedding;
-  if (!Array.isArray(embedding) || embedding.length !== 1536) return { sources: [], path: "legacy_embedding_mismatch" };
+  if (!Array.isArray(embedding) || embedding.length !== 1536) return { sources: [], path: "legacy_embedding_mismatch", failed: true };
 
   const { data: matches, error: matchError } = await db.rpc("match_chunks", {
     query_embedding: embedding,
@@ -282,7 +289,7 @@ async function retrieveLegacy(db: ReturnType<typeof createClient>, retrievalInpu
   });
   if (matchError) {
     console.error("match_chunks error", matchError);
-    return { sources: [], path: "legacy_retrieval_unavailable" };
+    return { sources: [], path: "legacy_retrieval_unavailable", failed: true };
   }
 
   const sources: AskSource[] = (matches || []).map((m: any) => ({
@@ -312,6 +319,8 @@ function buildLearningOracleV1(args: {
   sources: AskSource[];
   generationProvider: string;
   evidenceState: "partial" | "insufficient";
+  retrievalPath: string;
+  retrievalMethod: string;
 }): OracleResponseV1 {
   const ancientHits = args.sources.map((source) => ({
     id: source.id,
@@ -335,11 +344,11 @@ function buildLearningOracleV1(args: {
     generationProvider: args.generationProvider,
     legacyEvidenceState: args.evidenceState,
     grimoire: { status: "skipped", retrieval_mode: "not_queried", hits: [] },
-    ancient: { status: args.sources.length ? "grounded" : "empty", retrieval_mode: "legacy_vector", hits: ancientHits },
+    ancient: { status: args.sources.length ? "grounded" : "empty", retrieval_mode: args.retrievalMethod, hits: ancientHits },
     sacredWritings: { status: "skipped", retrieval_mode: "not_queried", hits: [] },
     citations: args.sources.map((source, index) => ({ label: `A${index + 1}`, well: "akst_ancient", title: source.title, url: source.source_url })),
     lawsApplied: ["No fabrication", "Rights-cleared source boundary"],
-    legacyRetrieval: { asking_point: "ask-akst", fallback_path: "match_chunks/akst_publishable_chunks" },
+    legacyRetrieval: { asking_point: "ask-akst", retrieval_path: args.retrievalPath },
     traceId: crypto.randomUUID(),
     wellsQueried: ["akst_ancient"],
   });
