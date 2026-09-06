@@ -1,0 +1,29 @@
+name: Oracle Contract CI
+
+on:
+  pull_request:
+    paths:
+      - "supabase/functions/**"
+      - ".github/workflows/oracle-contract-ci.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  oracle-contract:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+
+      - name: Parse and format-check Oracle contract sources
+        run: deno fmt --check supabase/functions/_shared/oracle-contract.ts supabase/functions/_shared/oracle-contract.test.ts supabase/functions/oracle-query/index.ts
+
+      - name: Run Oracle contract tests
+        run: deno test supabase/functions/_shared/oracle-contract.test.ts
