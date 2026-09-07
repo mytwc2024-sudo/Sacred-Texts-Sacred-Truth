@@ -29,6 +29,28 @@ function log(msg: string): void {
   console.log(`[akst] ${msg}`);
 }
 
+/**
+ * Preserve useful details from non-Error rejections such as PostgREST errors.
+ */
+function formatError(err: unknown): string {
+  if (err instanceof Error) return err.message;
+  if (err && typeof err === 'object') {
+    const value = err as Record<string, unknown>;
+    const details = [value.message, value.details, value.hint, value.code]
+      .filter((part): part is string => typeof part === 'string' && part.length > 0);
+
+    if (details.length > 0) return details.join(' | ');
+
+    try {
+      return JSON.stringify(err);
+    } catch {
+      // Fall through for unusual values that cannot be serialized.
+    }
+  }
+
+  return String(err);
+}
+
 async function ingestOne(source: TextSource): Promise<void> {
   log(`— ${source.title} (${source.tradition}) —`);
 
@@ -78,7 +100,7 @@ async function ingestOne(source: TextSource): Promise<void> {
     await markComplete(textId, chunks.length);
     log(`  ✓ stored ${chunks.length} chunks`);
   } catch (err) {
-    const message = err instanceof Error ? err.message : String(err);
+    const message = formatError(err);
     await markError(textId, message);
     throw err;
   }
@@ -105,7 +127,7 @@ async function main(): Promise<void> {
       await ingestOne(source);
       ok++;
     } catch (err) {
-      const message = err instanceof Error ? err.message : String(err);
+      const message = formatError(err);
       log(`  ✗ ${source.title}: ${message}`);
       failures.push(`${source.title}: ${message}`);
     }
