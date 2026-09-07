@@ -4,12 +4,15 @@ on:
   pull_request:
     paths:
       - "supabase/functions/**"
+      - "supabase/migrations/**"
       - ".github/workflows/oracle-contract-ci.yml"
   push:
     branches:
-      - "agent/oracle-evolution-map"
+      - "main"
+      - "agent/oracle-stage-2-2-retrieval-intelligence"
     paths:
       - "supabase/functions/**"
+      - "supabase/migrations/**"
       - ".github/workflows/oracle-contract-ci.yml"
   workflow_dispatch:
 
