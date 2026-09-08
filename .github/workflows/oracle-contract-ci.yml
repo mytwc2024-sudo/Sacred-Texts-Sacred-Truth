@@ -11,6 +11,7 @@ on:
       - "main"
       - "agent/oracle-stage-2-2-retrieval-intelligence"
       - "agent/oracle-stage-2-2-evidence-relationship"
+      - "agent/oracle-stage-2-2-query-decomposition"
     paths:
       - "supabase/functions/**"
       - "supabase/migrations/**"
@@ -33,7 +34,7 @@ jobs:
           deno-version: v2.x
 
       - name: Check Oracle contract formatting
-        run: deno fmt --check supabase/functions/_shared/oracle-contract.ts supabase/functions/_shared/oracle-contract.test.ts supabase/functions/_shared/oracle-evidence-relationship.test.ts supabase/functions/oracle-query/index.ts supabase/functions/ask-akst/index.ts
+        run: deno fmt --check supabase/functions/_shared/oracle-contract.ts supabase/functions/_shared/oracle-contract.test.ts supabase/functions/_shared/oracle-evidence-relationship.test.ts supabase/functions/_shared/oracle-query-plan.ts supabase/functions/_shared/oracle-query-plan.test.ts supabase/functions/oracle-query/index.ts supabase/functions/ask-akst/index.ts
 
       - name: Run Oracle contract tests
-        run: deno test supabase/functions/_shared/oracle-contract.test.ts supabase/functions/_shared/oracle-evidence-relationship.test.ts
+        run: deno test supabase/functions/_shared/oracle-contract.test.ts supabase/functions/_shared/oracle-evidence-relationship.test.ts supabase/functions/_shared/oracle-query-plan.test.ts
