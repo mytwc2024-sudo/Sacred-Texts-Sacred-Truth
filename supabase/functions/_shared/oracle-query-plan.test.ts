@@ -26,9 +26,16 @@ Deno.test("compound textual plus chronology question decomposes without splittin
   assertEquals(plan.subqueries.length, 2);
   assertEquals(plan.subqueries[0].intent, "textual_claim");
   assertEquals(plan.subqueries[1].intent, "chronology");
-  assertEquals(plan.subqueries[0].question, "What does Prayer of Manasses say about mercy and repentance,");
+  assertEquals(
+    plan.subqueries[0].question,
+    "What does Prayer of Manasses say about mercy and repentance,",
+  );
   assertEquals(plan.subqueries[1].question, "when was the text composed");
-  assert(plan.warnings.includes("preserve_subquery_evidence_classes_during_recombination"));
+  assert(
+    plan.warnings.includes(
+      "preserve_subquery_evidence_classes_during_recombination",
+    ),
+  );
 });
 
 Deno.test("identity question requires explicit identity evidence and avoids Grimoire routing", () => {
@@ -48,7 +55,11 @@ Deno.test("identity question requires explicit identity evidence and avoids Grim
       "do_not_equate_entities_from_semantic_similarity_alone",
     ),
   );
-  assert(plan.warnings.includes("do_not_collapse_identity_from_embedding_similarity"));
+  assert(
+    plan.warnings.includes(
+      "do_not_collapse_identity_from_embedding_similarity",
+    ),
+  );
 });
 
 Deno.test("comparison question requires evidence on both sides", () => {
@@ -92,7 +103,9 @@ Deno.test("interpretive request is explicitly separated from attestation", () =>
       "label_reflection_as_interpretive_not_historical_fact",
     ),
   );
-  assert(plan.warnings.includes("do_not_promote_interpretation_to_attestation"));
+  assert(
+    plan.warnings.includes("do_not_promote_interpretation_to_attestation"),
+  );
 });
 
 Deno.test("one clause may surface multiple evidence intents without becoming workflow orchestration", () => {

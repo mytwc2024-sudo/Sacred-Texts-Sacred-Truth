@@ -40,12 +40,18 @@ export type OracleQueryPlan = {
   warnings: string[];
 };
 
-const COMPARISON = /\b(compare|comparison|versus|vs\.?|difference|differ|similarit|across traditions?|parallel passages?)\b/i;
-const CHRONOLOGY = /\b(chronolog|earlier|later|before|after|oldest|newest|first attested|date[ds]?|dating|composed|composition|when was|sequence|timeline)\b/i;
-const IDENTITY = /\b(same (?:person|deity|figure|entity)|same as|alias|aliases|identity|identification|transliteration|another name|also called|equivalent to|who is|who was)\b/i;
-const PROVENANCE = /\b(manuscript|witness|provenance|source history|textual history|edition|translator|translation|original language|recension|interpolation|variant reading|codex|papyrus|fragment)\b/i;
-const INTERPRETIVE = /\b(interpret|meaning|mean spiritually|spiritual meaning|symbolic|symbolism|reflect|reflection|metaphor|mystical|practice|ritual meaning)\b/i;
-const EXPLICIT_TEXTUAL = /\b(what does .* say|what do .* say|according to|passage|verse|quote|quotation|textual claim|where does .* say|teach(?:es|ing)?)\b/i;
+const COMPARISON =
+  /\b(compare|comparison|versus|vs\.?|difference|differ|similarit|across traditions?|parallel passages?)\b/i;
+const CHRONOLOGY =
+  /\b(chronolog|earlier|later|before|after|oldest|newest|first attested|date[ds]?|dating|composed|composition|when was|sequence|timeline)\b/i;
+const IDENTITY =
+  /\b(same (?:person|deity|figure|entity)|same as|alias|aliases|identity|identification|transliteration|another name|also called|equivalent to|who is|who was)\b/i;
+const PROVENANCE =
+  /\b(manuscript|witness|provenance|source history|textual history|edition|translator|translation|original language|recension|interpolation|variant reading|codex|papyrus|fragment)\b/i;
+const INTERPRETIVE =
+  /\b(interpret|meaning|mean spiritually|spiritual meaning|symbolic|symbolism|reflect|reflection|metaphor|mystical|practice|ritual meaning)\b/i;
+const EXPLICIT_TEXTUAL =
+  /\b(what does .* say|what do .* say|according to|passage|verse|quote|quotation|textual claim|where does .* say|teach(?:es|ing)?)\b/i;
 
 export function planOracleQuery(
   question: string,
@@ -87,7 +93,9 @@ export function planOracleQuery(
     execution_status: "not_applied_to_retrieval",
     surface,
     original_question: original,
-    complexity: subqueries.length > 1 || clauses.length > 1 ? "compound" : "simple",
+    complexity: subqueries.length > 1 || clauses.length > 1
+      ? "compound"
+      : "simple",
     decomposition_method: "deterministic_v1",
     subqueries,
     warnings,
@@ -98,7 +106,9 @@ function splitExplicitClauses(question: string) {
   if (!question) return [];
 
   return question
-    .split(/[;\n]+|\?\s+(?=\S)|\s+(?:and|then)\s+(?=(?:what|when|where|which|who|why|how|is|are|was|were|does|did|can|could|would|should)\b)/i)
+    .split(
+      /[;\n]+|\?\s+(?=\S)|\s+(?:and|then)\s+(?=(?:what|when|where|which|who|why|how|is|are|was|were|does|did|can|could|would|should)\b)/i,
+    )
     .map((part) => part.trim().replace(/[?]+$/g, ""))
     .filter(Boolean);
 }
@@ -196,13 +206,19 @@ function buildWarnings(subqueries: OraclePlannedSubquery[]) {
   if (subqueries.length > 1) {
     warnings.push("preserve_subquery_evidence_classes_during_recombination");
   }
-  if (subqueries.some((subquery) => subquery.intent === "interpretive_reflective")) {
+  if (
+    subqueries.some((subquery) => subquery.intent === "interpretive_reflective")
+  ) {
     warnings.push("do_not_promote_interpretation_to_attestation");
   }
   if (subqueries.some((subquery) => subquery.intent === "identity_alias")) {
     warnings.push("do_not_collapse_identity_from_embedding_similarity");
   }
-  if (subqueries.some((subquery) => subquery.intent === "cross_tradition_comparison")) {
+  if (
+    subqueries.some((subquery) =>
+      subquery.intent === "cross_tradition_comparison"
+    )
+  ) {
     warnings.push("comparison_requires_evidence_on_each_side");
   }
   return warnings;
