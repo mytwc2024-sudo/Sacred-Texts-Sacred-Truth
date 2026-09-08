@@ -102,6 +102,21 @@ export async function runAkstLearningQueryPlanShadow(
   };
 }
 
+export function buildShadowRuntimeFailure(
+  plan: OracleQueryPlan,
+): OracleQueryPlanShadowEvaluation {
+  const result = evaluateOracleQueryPlanShadow(plan, []);
+  return {
+    ...result,
+    status: "not_evaluated",
+    warnings: [
+      "shadow_runtime_error",
+      "primary_oracle_response_must_continue",
+      ...result.warnings,
+    ],
+  };
+}
+
 function toEvidenceUnits(
   retrieval: OracleShadowRuntimeRetrieval,
 ): OracleEvidenceUnit[] {
