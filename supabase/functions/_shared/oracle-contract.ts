@@ -46,6 +46,24 @@ export type OracleEvidenceUnit = {
   retrieval_method?: string | null;
 };
 
+export type OracleEvidenceRelationshipLevel =
+  | "supported"
+  | "related"
+  | "insufficient"
+  | "not_assessed";
+
+export type OracleEvidenceRelationship = {
+  level: OracleEvidenceRelationshipLevel;
+  scope: "akst_learning" | "multi_well_unassessed";
+  reasons: string[];
+  top_semantic_score: number | null;
+  max_term_coverage: number | null;
+  source_title_match: string | null;
+  direct_phrase_match: string | null;
+  query_terms: string[];
+  matched_terms: string[];
+};
+
 export type OracleRetrieval = {
   methods: string[];
   wells_queried: OracleWell[];
@@ -54,6 +72,7 @@ export type OracleRetrieval = {
   embedding_model?: string | null;
   embedding_dimensions?: number | null;
   embedding_count?: number | null;
+  evidence_relationship?: OracleEvidenceRelationship;
   [key: string]: unknown;
 };
 
@@ -133,6 +152,11 @@ export function buildOracleV1(input: OracleV1BuildInput): OracleResponseV1 {
       methodFor(resultForWell(input, well), "lexical")
     ),
   );
+  const evidenceRelationship = assessEvidenceRelationship(
+    input.surface,
+    input.question,
+    evidenceUnits,
+  );
 
   return {
     contract_version: ORACLE_CONTRACT_VERSION,
@@ -157,6 +181,7 @@ export function buildOracleV1(input: OracleV1BuildInput): OracleResponseV1 {
         input.legacyRetrieval?.embedding_dimensions,
       ),
       embedding_count: asNumber(input.legacyRetrieval?.embedding_count),
+      evidence_relationship: evidenceRelationship,
     },
     policy: {
       laws_applied: input.lawsApplied,
@@ -272,6 +297,223 @@ function normalizeSacred(result: OracleLegacyWellResult): OracleEvidenceUnit[] {
     score: asNumber(hit.score) ?? asNumber(hit.similarity),
     retrieval_method: methodFor(result, "lexical"),
   }));
+}
+
+const SUPPORT_STOP_WORDS = new Set([
+  "the",
+  "and",
+  "for",
+  "with",
+  "from",
+  "that",
+  "this",
+  "what",
+  "when",
+  "where",
+  "which",
+  "who",
+  "whom",
+  "whose",
+  "why",
+  "how",
+  "does",
+  "did",
+  "are",
+  "was",
+  "were",
+  "been",
+  "being",
+  "into",
+  "onto",
+  "your",
+  "their",
+  "ours",
+  "our",
+  "his",
+  "her",
+  "its",
+  "you",
+  "they",
+  "them",
+  "those",
+  "these",
+  "someone",
+  "person",
+  "about",
+  "after",
+  "before",
+  "toward",
+  "towards",
+  "through",
+  "under",
+  "over",
+]);
+
+const AKST_OFF_DOMAIN_SEMANTIC_FLOOR = 0.83;
+const AKST_STRONG_SEMANTIC_SCORE = 0.86;
+const AKST_STRONG_TERM_COVERAGE = 0.8;
+
+export function assessEvidenceRelationship(
+  surface: OracleSurface,
+  question: string,
+  evidenceUnits: OracleEvidenceUnit[],
+): OracleEvidenceRelationship {
+  if (surface !== "akst_learning") {
+    return {
+      level: "not_assessed",
+      scope: "multi_well_unassessed",
+      reasons: ["multi_well_relationship_not_yet_calibrated"],
+      top_semantic_score: null,
+      max_term_coverage: null,
+      source_title_match: null,
+      direct_phrase_match: null,
+      query_terms: [],
+      matched_terms: [],
+    };
+  }
+
+  const ancientUnits = evidenceUnits.filter((unit) => unit.well === "akst_ancient");
+  const queryTerms = significantTerms(question);
+  if (!ancientUnits.length) {
+    return {
+      level: "insufficient",
+      scope: "akst_learning",
+      reasons: ["no_ancient_evidence"],
+      top_semantic_score: null,
+      max_term_coverage: 0,
+      source_title_match: null,
+      direct_phrase_match: null,
+      query_terms: queryTerms,
+      matched_terms: [],
+    };
+  }
+
+  const normalizedQuestion = normalizeText(question);
+  let sourceTitleMatch: string | null = null;
+  let directPhraseMatch: string | null = null;
+  let maxTermCoverage = 0;
+  let matchedTerms: string[] = [];
+
+  for (const unit of ancientUnits) {
+    const evidenceText = [unit.title, unit.excerpt, unit.author, unit.source_name]
+      .filter((value): value is string => Boolean(value))
+      .join(" ");
+    const evidenceTokens = new Set(tokenize(evidenceText));
+    const currentMatched = queryTerms.filter((term) => evidenceTokens.has(term));
+    const coverage = queryTerms.length ? currentMatched.length / queryTerms.length : 0;
+    if (coverage > maxTermCoverage) {
+      maxTermCoverage = coverage;
+      matchedTerms = currentMatched;
+    }
+
+    const normalizedTitle = normalizeText(unit.title);
+    if (
+      !sourceTitleMatch &&
+      normalizedTitle.length >= 5 &&
+      normalizedTitle !== "ancient source" &&
+      normalizedQuestion.includes(normalizedTitle)
+    ) {
+      sourceTitleMatch = unit.title;
+    }
+
+    const phrase = findDirectPhrase(question, evidenceText);
+    if (
+      phrase &&
+      (!directPhraseMatch || tokenize(phrase).length > tokenize(directPhraseMatch).length)
+    ) {
+      directPhraseMatch = phrase;
+    }
+  }
+
+  const semanticScores = ancientUnits
+    .filter((unit) => unit.retrieval_method?.includes("vector"))
+    .map((unit) => unit.score)
+    .filter((score): score is number => typeof score === "number" && Number.isFinite(score));
+  const topSemanticScore = semanticScores.length ? Math.max(...semanticScores) : null;
+
+  const strongSemanticAndCoverage = topSemanticScore !== null &&
+    topSemanticScore >= AKST_STRONG_SEMANTIC_SCORE &&
+    maxTermCoverage >= AKST_STRONG_TERM_COVERAGE &&
+    queryTerms.length >= 2;
+
+  if (sourceTitleMatch || directPhraseMatch || strongSemanticAndCoverage) {
+    const reasons: string[] = [];
+    if (sourceTitleMatch) reasons.push("direct_source_title_match");
+    if (directPhraseMatch) reasons.push("direct_passage_phrase_match");
+    if (strongSemanticAndCoverage) reasons.push("high_semantic_and_term_coverage");
+    return {
+      level: "supported",
+      scope: "akst_learning",
+      reasons,
+      top_semantic_score: topSemanticScore,
+      max_term_coverage: maxTermCoverage,
+      source_title_match: sourceTitleMatch,
+      direct_phrase_match: directPhraseMatch,
+      query_terms: queryTerms,
+      matched_terms: matchedTerms,
+    };
+  }
+
+  const clearlyOffDomain = topSemanticScore !== null &&
+    topSemanticScore < AKST_OFF_DOMAIN_SEMANTIC_FLOOR &&
+    maxTermCoverage < 0.5;
+  if (clearlyOffDomain) {
+    return {
+      level: "insufficient",
+      scope: "akst_learning",
+      reasons: ["semantic_score_below_calibrated_floor", "weak_term_corroboration"],
+      top_semantic_score: topSemanticScore,
+      max_term_coverage: maxTermCoverage,
+      source_title_match: null,
+      direct_phrase_match: null,
+      query_terms: queryTerms,
+      matched_terms: matchedTerms,
+    };
+  }
+
+  return {
+    level: "related",
+    scope: "akst_learning",
+    reasons: ["semantic_similarity_without_direct_corroboration"],
+    top_semantic_score: topSemanticScore,
+    max_term_coverage: maxTermCoverage,
+    source_title_match: null,
+    direct_phrase_match: null,
+    query_terms: queryTerms,
+    matched_terms: matchedTerms,
+  };
+}
+
+function significantTerms(text: string) {
+  return uniqueStrings(
+    tokenize(text).filter((term) => term.length > 2 && !SUPPORT_STOP_WORDS.has(term)),
+  );
+}
+
+function tokenize(text: string) {
+  return text.toLowerCase().match(/[a-z0-9]+/g) ?? [];
+}
+
+function normalizeText(text: string) {
+  return tokenize(text).join(" ");
+}
+
+function findDirectPhrase(query: string, evidence: string) {
+  const queryTokens = tokenize(query);
+  const evidenceText = ` ${normalizeText(evidence)} `;
+  const maxWindow = Math.min(6, queryTokens.length);
+  for (let size = maxWindow; size >= 3; size--) {
+    for (let index = 0; index <= queryTokens.length - size; index++) {
+      const window = queryTokens.slice(index, index + size);
+      const significantCount = window.filter((term) =>
+        term.length > 2 && !SUPPORT_STOP_WORDS.has(term)
+      ).length;
+      if (significantCount < 2) continue;
+      const phrase = window.join(" ");
+      if (evidenceText.includes(` ${phrase} `)) return phrase;
+    }
+  }
+  return null;
 }
 
 function restrictionsFor(surface: OracleSurface) {
