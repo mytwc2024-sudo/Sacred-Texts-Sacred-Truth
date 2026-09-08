@@ -66,7 +66,7 @@ Deno.test("high semantic score plus strong term coverage is supported", () => {
     [
       ancientUnit({
         title: "Prayer of Manasses",
-        excerpt: "The Lord is compassionate and most merciful, appointing repentance for me a sinner.",
+        excerpt: "The passage joins mercy, compassion, repentance, and the confession of a sinner.",
         score: 0.91,
       }),
     ],
