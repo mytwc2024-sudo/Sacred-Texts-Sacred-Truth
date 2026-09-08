@@ -6,6 +6,10 @@ import {
   type OracleSurface,
   type OracleWell,
 } from "../_shared/oracle-contract.ts";
+import {
+  buildShadowRuntimeFailure,
+  runAkstLearningQueryPlanShadow,
+} from "../_shared/oracle-query-plan-shadow-runtime.ts";
 
 const CORS = {
   "Access-Control-Allow-Origin": "*",
@@ -54,6 +58,7 @@ Deno.serve(async (req: Request) => {
       ? "ankhor_internal"
       : "internal";
     const forceEvidenceOnly = body?.evidence_only === true;
+    const runShadowQueryPlan = body?.shadow_query_plan === true;
 
     if (!question) return json({ error: "question is required" }, 400);
     if (question.length > 4000) {
@@ -136,6 +141,9 @@ Deno.serve(async (req: Request) => {
         traceId,
         wellsQueried,
       });
+      const queryPlanShadow = runShadowQueryPlan
+        ? await executeQueryPlanShadow(db, oracleV1.query_plan)
+        : undefined;
 
       return json({
         question,
@@ -147,6 +155,14 @@ Deno.serve(async (req: Request) => {
         sacred_writings: sacred,
         laws_applied: lawsApplied,
         ...oracleV1,
+        ...(queryPlanShadow
+          ? {
+            diagnostics: {
+              ...oracleV1.diagnostics,
+              query_plan_shadow: queryPlanShadow,
+            },
+          }
+          : {}),
       });
     }
 
@@ -224,6 +240,9 @@ ${tierC || "(none)"}`;
       traceId,
       wellsQueried,
     });
+    const queryPlanShadow = runShadowQueryPlan
+      ? await executeQueryPlanShadow(db, oracleV1.query_plan)
+      : undefined;
 
     return json({
       question,
@@ -235,6 +254,14 @@ ${tierC || "(none)"}`;
       sacred_writings: sacred,
       laws_applied: lawsApplied,
       ...oracleV1,
+      ...(queryPlanShadow
+        ? {
+          diagnostics: {
+            ...oracleV1.diagnostics,
+            query_plan_shadow: queryPlanShadow,
+          },
+        }
+        : {}),
     });
   } catch (error) {
     console.error("oracle-query", error);
@@ -277,6 +304,39 @@ function retrievalMetadata(
     canonical_editorial_authority: "Notion",
     runtime_authority: "AKST Supabase",
   };
+}
+
+async function executeQueryPlanShadow(
+  db: ReturnType<typeof createClient>,
+  plan: Parameters<typeof runAkstLearningQueryPlanShadow>[0],
+) {
+  try {
+    return await runAkstLearningQueryPlanShadow(plan, {
+      retrieveAncient: async (question) => {
+        const embedding = await nativeEmbed(question);
+        return await getAncient(db, question, embedding);
+      },
+      loadSourceMetadata: async (textIds) => {
+        const { data, error } = await db
+          .from("akst_texts")
+          .select(
+            "id,title,tradition_id,estimated_date,original_language,translator,source_name,source_url,source_file_name,source_format,source_acquired_at,work_key,witness_key,verification_status,rights_status,content_tier,is_public",
+          )
+          .in("id", textIds)
+          .eq("is_public", true)
+          .eq("content_tier", "A")
+          .in("rights_status", ["public_domain", "rights_cleared"]);
+
+        if (error) {
+          throw new Error("shadow source metadata lookup failed");
+        }
+        return data ?? [];
+      },
+    });
+  } catch (error) {
+    console.error("Oracle query-plan shadow", error);
+    return buildShadowRuntimeFailure(plan);
+  }
 }
 
 async function authenticateTransport(
