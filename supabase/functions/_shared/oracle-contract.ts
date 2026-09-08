@@ -1,7 +1,4 @@
-import {
-  planOracleQuery,
-  type OracleQueryPlan,
-} from "./oracle-query-plan.ts";
+import { type OracleQueryPlan, planOracleQuery } from "./oracle-query-plan.ts";
 
 export const ORACLE_CONTRACT_VERSION = "oracle.v1" as const;
 
