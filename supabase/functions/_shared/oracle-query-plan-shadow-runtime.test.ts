@@ -2,8 +2,8 @@ import { assert, assertEquals } from "jsr:@std/assert@1";
 import { planOracleQuery } from "./oracle-query-plan.ts";
 import {
   ORACLE_SHADOW_MAX_SUBQUERIES,
-  runAkstLearningQueryPlanShadow,
   type OracleShadowRuntimeCallbacks,
+  runAkstLearningQueryPlanShadow,
 } from "./oracle-query-plan-shadow-runtime.ts";
 
 function callbacks(log: string[] = []): OracleShadowRuntimeCallbacks {
@@ -72,7 +72,9 @@ Deno.test("shadow runtime retrieves each planned subquery independently", async 
 
   await runAkstLearningQueryPlanShadow(plan, callbacks(log));
 
-  assert(log.includes("retrieve:What does Prayer of Manasses say about repentance,"));
+  assert(
+    log.includes("retrieve:What does Prayer of Manasses say about repentance,"),
+  );
   assert(log.includes("retrieve:when was it composed"));
 });
 
