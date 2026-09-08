@@ -1,7 +1,7 @@
 import type { OracleQueryPlanShadowEvaluation } from "./oracle-query-plan-shadow.ts";
 import {
-  recombineOracleQueryPlanShadow,
   type OracleQueryPlanRecombination,
+  recombineOracleQueryPlanShadow,
 } from "./oracle-query-plan-recombination.ts";
 
 export type OracleQueryPlanShadowDiagnostics = {

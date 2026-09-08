@@ -10,6 +10,7 @@ import {
   buildShadowRuntimeFailure,
   runAkstLearningQueryPlanShadow,
 } from "../_shared/oracle-query-plan-shadow-runtime.ts";
+import { buildOracleQueryPlanShadowDiagnostics } from "../_shared/oracle-query-plan-shadow-diagnostics.ts";
 
 const CORS = {
   "Access-Control-Allow-Origin": "*",
@@ -159,7 +160,7 @@ Deno.serve(async (req: Request) => {
           ? {
             diagnostics: {
               ...oracleV1.diagnostics,
-              query_plan_shadow: queryPlanShadow,
+              ...buildOracleQueryPlanShadowDiagnostics(queryPlanShadow),
             },
           }
           : {}),
@@ -258,7 +259,7 @@ ${tierC || "(none)"}`;
         ? {
           diagnostics: {
             ...oracleV1.diagnostics,
-            query_plan_shadow: queryPlanShadow,
+            ...buildOracleQueryPlanShadowDiagnostics(queryPlanShadow),
           },
         }
         : {}),
