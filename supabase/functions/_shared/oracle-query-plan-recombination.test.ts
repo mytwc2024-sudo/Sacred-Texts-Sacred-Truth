@@ -35,7 +35,8 @@ function section(
 
 function shadow(
   sections: OracleShadowSubqueryEvaluation[],
-  evaluated = sections.filter((item) => item.satisfaction !== "not_assessed").length,
+  evaluated =
+    sections.filter((item) => item.satisfaction !== "not_assessed").length,
 ): OracleQueryPlanShadowEvaluation {
   return {
     version: "oracle.query_plan_shadow.v1",
@@ -98,7 +99,10 @@ Deno.test("all unmet sections recombine as insufficient", () => {
 });
 
 Deno.test("unevaluated sections prevent a complete-support ruling", () => {
-  const sections = [section("q1", "met"), section("q2", "not_assessed", "chronology")];
+  const sections = [
+    section("q1", "met"),
+    section("q2", "not_assessed", "chronology"),
+  ];
   const result = recombineOracleQueryPlanShadow(shadow(sections, 1));
 
   assertEquals(result.overall_state, "incomplete_evaluation");
