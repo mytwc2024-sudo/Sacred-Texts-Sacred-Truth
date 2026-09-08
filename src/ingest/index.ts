@@ -34,22 +34,26 @@ function log(msg: string): void {
 }
 
 /**
- * Extract a human-readable message from an error. Supabase/PostgREST rejects
- * with plain objects ({ message, details, hint, code }) rather than Error
- * instances, so `String(err)` would print "[object Object]" and hide the cause.
+ * Preserve useful details from non-Error rejections such as PostgREST errors,
+ * which reject with plain { message, details, hint, code } objects — so a bare
+ * String(err) would print "[object Object]" and hide the cause.
  */
 function formatError(err: unknown): string {
   if (err instanceof Error) return err.message;
   if (err && typeof err === 'object') {
-    const e = err as Record<string, unknown>;
-    const parts = [e.message, e.details, e.hint, e.code].filter(Boolean);
-    if (parts.length > 0) return parts.join(' | ');
+    const value = err as Record<string, unknown>;
+    const details = [value.message, value.details, value.hint, value.code]
+      .filter((part): part is string => typeof part === 'string' && part.length > 0);
+
+    if (details.length > 0) return details.join(' | ');
+
     try {
       return JSON.stringify(err);
     } catch {
-      return String(err);
+      // Fall through for unusual values that cannot be serialized.
     }
   }
+
   return String(err);
 }
 
@@ -108,7 +112,8 @@ async function ingestOne(source: TextSource): Promise<void> {
     await markComplete(textId, chunks.length);
     log(`  ✓ stored ${chunks.length} chunks${SKIP_EMBEDDINGS ? ' (no embeddings)' : ''}`);
   } catch (err) {
-    await markError(textId, formatError(err));
+    const message = formatError(err);
+    await markError(textId, message);
     throw err;
   }
 }
