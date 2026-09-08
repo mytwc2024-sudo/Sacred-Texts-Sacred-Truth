@@ -42,10 +42,6 @@ function callbacks(log: string[] = []): OracleShadowRuntimeCallbacks {
         is_public: true,
       }];
     },
-    async assessRelationship(question) {
-      log.push(`relationship:${question}`);
-      return { level: "supported", reasons: ["fixture"] };
-    },
   };
 }
 
@@ -152,7 +148,6 @@ Deno.test("shadow runtime skips metadata fetch when retrieval has no text ids", 
     metadataCalls += 1;
     return [];
   };
-  cb.assessRelationship = async () => ({ level: "insufficient" });
 
   const plan = planOracleQuery("What does the passage say?", "akst_learning");
   const result = await runAkstLearningQueryPlanShadow(plan, cb);
