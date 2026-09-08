@@ -1,3 +1,5 @@
+import { type OracleQueryPlan, planOracleQuery } from "./oracle-query-plan.ts";
+
 export const ORACLE_CONTRACT_VERSION = "oracle.v1" as const;
 
 export type OracleSurface =
@@ -94,6 +96,7 @@ export type OracleResponseV1 = {
     normalized?: string | null;
     surface: OracleSurface;
   };
+  query_plan: OracleQueryPlan;
   state: OracleState;
   answer: string;
   answer_mode: OracleAnswerMode;
@@ -157,6 +160,7 @@ export function buildOracleV1(input: OracleV1BuildInput): OracleResponseV1 {
     input.question,
     evidenceUnits,
   );
+  const queryPlan = planOracleQuery(input.question, input.surface);
 
   return {
     contract_version: ORACLE_CONTRACT_VERSION,
@@ -165,6 +169,7 @@ export function buildOracleV1(input: OracleV1BuildInput): OracleResponseV1 {
       normalized: input.normalizedQuery ?? null,
       surface: input.surface,
     },
+    query_plan: queryPlan,
     state,
     answer: input.answer,
     answer_mode: input.answerMode,
