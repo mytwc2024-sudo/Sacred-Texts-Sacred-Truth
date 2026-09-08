@@ -1,8 +1,11 @@
+import {
+  assessEvidenceRelationship,
+  type OracleEvidenceUnit,
+} from "./oracle-contract.ts";
 import type { OracleQueryPlan } from "./oracle-query-plan.ts";
 import {
   evaluateOracleQueryPlanShadow,
   type OracleQueryPlanShadowEvaluation,
-  type OracleShadowRelationship,
   type OracleShadowSourceMetadata,
   type OracleShadowSubqueryEvidence,
 } from "./oracle-query-plan-shadow.ts";
@@ -15,6 +18,9 @@ export type OracleShadowRuntimeHit = {
   title: string;
   excerpt?: string | null;
   score?: number | null;
+  source_name?: string | null;
+  source_url?: string | null;
+  author?: string | null;
   content_tier?: string | null;
   rights_status?: string | null;
 };
@@ -30,13 +36,6 @@ export type OracleShadowRuntimeCallbacks = {
   loadSourceMetadata: (
     textIds: string[],
   ) => Promise<OracleShadowSourceMetadata[]>;
-  assessRelationship: (
-    question: string,
-    retrieval: OracleShadowRuntimeRetrieval,
-  ) => Promise<{
-    level: OracleShadowRelationship;
-    reasons?: string[];
-  }>;
 };
 
 export async function runAkstLearningQueryPlanShadow(
@@ -62,19 +61,21 @@ export async function runAkstLearningQueryPlanShadow(
       const textIds = uniqueStrings(
         retrieval.hits.map((hit) => hit.text_id),
       );
-      const [sourceMetadata, relationship] = await Promise.all([
-        textIds.length
-          ? callbacks.loadSourceMetadata(textIds)
-          : Promise.resolve([]),
-        callbacks.assessRelationship(subquery.question, retrieval),
-      ]);
+      const sourceMetadata = textIds.length
+        ? await callbacks.loadSourceMetadata(textIds)
+        : [];
+      const relationship = assessEvidenceRelationship(
+        "akst_learning",
+        subquery.question,
+        toEvidenceUnits(retrieval),
+      );
 
       return {
         subquery_id: subquery.id,
         retrieval_mode: retrieval.retrieval_mode ?? null,
         vector_status: retrieval.vector_status ?? null,
         relationship_level: relationship.level,
-        relationship_reasons: relationship.reasons ?? [],
+        relationship_reasons: relationship.reasons,
         hits: retrieval.hits.map((hit) => ({
           text_id: hit.text_id ?? null,
           title: hit.title,
@@ -99,6 +100,27 @@ export async function runAkstLearningQueryPlanShadow(
       ...result.warnings,
     ],
   };
+}
+
+function toEvidenceUnits(
+  retrieval: OracleShadowRuntimeRetrieval,
+): OracleEvidenceUnit[] {
+  return retrieval.hits.map((hit, index) => ({
+    id: `shadow:${hit.id ?? index}`,
+    citation_label: `A${index + 1}`,
+    well: "akst_ancient",
+    source_id: hit.id ?? null,
+    parent_source_id: hit.text_id ?? null,
+    title: hit.title,
+    excerpt: hit.excerpt ?? "",
+    source_name: hit.source_name ?? null,
+    source_url: hit.source_url ?? null,
+    author: hit.author ?? null,
+    rights_status: hit.rights_status ?? null,
+    content_tier: hit.content_tier ?? null,
+    score: hit.score ?? null,
+    retrieval_method: retrieval.retrieval_mode ?? null,
+  }));
 }
 
 function uniqueStrings(values: Array<string | null | undefined>) {
