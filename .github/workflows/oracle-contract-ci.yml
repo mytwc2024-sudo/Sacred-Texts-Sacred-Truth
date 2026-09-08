@@ -1,39 +1,40 @@
 name: Oracle Contract CI
 
 on:
+  pull_request:
+    paths:
+      - "supabase/functions/**"
+      - "supabase/migrations/**"
+      - ".github/workflows/oracle-contract-ci.yml"
   push:
     branches:
+      - "main"
+      - "agent/oracle-stage-2-2-retrieval-intelligence"
+      - "agent/oracle-stage-2-2-evidence-relationship"
       - "agent/oracle-stage-2-2-query-decomposition"
+    paths:
+      - "supabase/functions/**"
+      - "supabase/migrations/**"
+      - ".github/workflows/oracle-contract-ci.yml"
   workflow_dispatch:
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
   oracle-contract:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
 
       - uses: denoland/setup-deno@v2
         with:
           deno-version: v2.x
 
-      - name: Format Oracle query planner sources
-        run: deno fmt supabase/functions/_shared/oracle-query-plan.ts supabase/functions/_shared/oracle-query-plan.test.ts
+      - name: Check Oracle contract formatting
+        run: deno fmt --check supabase/functions/_shared/oracle-contract.ts supabase/functions/_shared/oracle-contract.test.ts supabase/functions/_shared/oracle-evidence-relationship.test.ts supabase/functions/_shared/oracle-query-plan.ts supabase/functions/_shared/oracle-query-plan.test.ts supabase/functions/oracle-query/index.ts supabase/functions/ask-akst/index.ts
 
-      - name: Run full Oracle contract tests
+      - name: Run Oracle contract tests
         run: deno test supabase/functions/_shared/oracle-contract.test.ts supabase/functions/_shared/oracle-evidence-relationship.test.ts supabase/functions/_shared/oracle-query-plan.test.ts
-
-      - name: Commit exact Deno formatting
-        shell: bash
-        run: |
-          if git diff --quiet -- supabase/functions/_shared/oracle-query-plan.ts supabase/functions/_shared/oracle-query-plan.test.ts; then
-            echo "Formatting already committed."
-            exit 0
-          fi
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add supabase/functions/_shared/oracle-query-plan.ts supabase/functions/_shared/oracle-query-plan.test.ts
-          git commit -m "Format Stage 2.2 Oracle query planner sources"
-          git push origin HEAD:agent/oracle-stage-2-2-query-decomposition
