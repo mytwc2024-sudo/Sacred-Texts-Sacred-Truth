@@ -42,31 +42,46 @@ Deno.test("shadow evaluation is explicitly diagnostic and never applied to answe
   assertEquals(result.applied_to_primary_retrieval, false);
   assertEquals(result.applied_to_answer, false);
   assert(
-    result.warnings.includes("do_not_use_shadow_results_for_answer_recombination_yet"),
+    result.warnings.includes(
+      "do_not_use_shadow_results_for_answer_recombination_yet",
+    ),
   );
 });
 
 Deno.test("supported textual evidence satisfies a textual subquery", () => {
-  const plan = planOracleQuery("What does the text say about repentance?", "akst_learning");
+  const plan = planOracleQuery(
+    "What does the text say about repentance?",
+    "akst_learning",
+  );
   const result = evaluateOracleQueryPlanShadow(plan, [evidence("q1")]);
 
   assertEquals(result.subqueries[0].intent, "textual_claim");
   assertEquals(result.subqueries[0].satisfaction, "met");
-  assertEquals(result.subqueries[0].reasons, ["textual_relationship_supported"]);
+  assertEquals(result.subqueries[0].reasons, [
+    "textual_relationship_supported",
+  ]);
 });
 
 Deno.test("related textual evidence remains partial instead of becoming support", () => {
-  const plan = planOracleQuery("What does the text say about repentance?", "akst_learning");
+  const plan = planOracleQuery(
+    "What does the text say about repentance?",
+    "akst_learning",
+  );
   const result = evaluateOracleQueryPlanShadow(plan, [
     evidence("q1", { relationship_level: "related" }),
   ]);
 
   assertEquals(result.subqueries[0].satisfaction, "partial");
-  assertEquals(result.subqueries[0].reasons, ["textual_relationship_related_not_supported"]);
+  assertEquals(result.subqueries[0].reasons, [
+    "textual_relationship_related_not_supported",
+  ]);
 });
 
 Deno.test("insufficient textual evidence leaves the subquery unmet", () => {
-  const plan = planOracleQuery("What does the text say about repentance?", "akst_learning");
+  const plan = planOracleQuery(
+    "What does the text say about repentance?",
+    "akst_learning",
+  );
   const result = evaluateOracleQueryPlanShadow(plan, [
     evidence("q1", { relationship_level: "insufficient" }),
   ]);
@@ -75,7 +90,10 @@ Deno.test("insufficient textual evidence leaves the subquery unmet", () => {
 });
 
 Deno.test("vague ancient date stays partial even when translation year is known", () => {
-  const plan = planOracleQuery("When was Prayer of Manasses composed?", "akst_learning");
+  const plan = planOracleQuery(
+    "When was Prayer of Manasses composed?",
+    "akst_learning",
+  );
   const result = evaluateOracleQueryPlanShadow(plan, [
     evidence("q1", {
       source_metadata: [{
@@ -111,7 +129,9 @@ Deno.test("specific composition date metadata can satisfy chronology shadow requ
   ]);
 
   assertEquals(result.subqueries[0].satisfaction, "met");
-  assertEquals(result.subqueries[0].reasons, ["specific_composition_date_metadata_present"]);
+  assertEquals(result.subqueries[0].reasons, [
+    "specific_composition_date_metadata_present",
+  ]);
 });
 
 Deno.test("complete governed source metadata satisfies provenance shadow requirements", () => {
@@ -140,7 +160,10 @@ Deno.test("complete governed source metadata satisfies provenance shadow require
 });
 
 Deno.test("identity questions cannot be satisfied by passage similarity in shadow v1", () => {
-  const plan = planOracleQuery("Is figure A the same as figure B?", "akst_learning");
+  const plan = planOracleQuery(
+    "Is figure A the same as figure B?",
+    "akst_learning",
+  );
   const result = evaluateOracleQueryPlanShadow(plan, [evidence("q1")]);
 
   assertEquals(result.subqueries[0].intent, "identity_alias");
@@ -151,7 +174,10 @@ Deno.test("identity questions cannot be satisfied by passage similarity in shado
 });
 
 Deno.test("cross-tradition comparison stays partial without evidence from two traditions", () => {
-  const plan = planOracleQuery("Compare these teachings across traditions", "internal");
+  const plan = planOracleQuery(
+    "Compare these teachings across traditions",
+    "internal",
+  );
   const result = evaluateOracleQueryPlanShadow(plan, [
     evidence("q1", {
       source_metadata: [{
@@ -167,7 +193,10 @@ Deno.test("cross-tradition comparison stays partial without evidence from two tr
 });
 
 Deno.test("cross-tradition comparison can be met only with independent tradition evidence", () => {
-  const plan = planOracleQuery("Compare these teachings across traditions", "internal");
+  const plan = planOracleQuery(
+    "Compare these teachings across traditions",
+    "internal",
+  );
   const result = evaluateOracleQueryPlanShadow(plan, [
     evidence("q1", {
       source_metadata: [
@@ -181,7 +210,10 @@ Deno.test("cross-tradition comparison can be met only with independent tradition
 });
 
 Deno.test("interpretive requests remain partial even with attested textual support", () => {
-  const plan = planOracleQuery("What is the spiritual meaning of this passage?", "internal");
+  const plan = planOracleQuery(
+    "What is the spiritual meaning of this passage?",
+    "internal",
+  );
   const result = evaluateOracleQueryPlanShadow(plan, [evidence("q1")]);
 
   assertEquals(result.subqueries[0].intent, "interpretive_reflective");

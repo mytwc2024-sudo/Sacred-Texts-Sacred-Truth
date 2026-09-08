@@ -96,9 +96,8 @@ export function evaluateOracleQueryPlanShadow(
   const subqueries = plan.subqueries.map((subquery) =>
     evaluateSubquery(subquery, byId.get(subquery.id))
   );
-  const evaluated = subqueries.filter((item) =>
-    item.satisfaction !== "not_assessed"
-  ).length;
+  const evaluated =
+    subqueries.filter((item) => item.satisfaction !== "not_assessed").length;
 
   return {
     version: ORACLE_QUERY_PLAN_SHADOW_VERSION,
@@ -297,7 +296,10 @@ function interpretiveEvaluation(
 
 function hasSpecificCompositionDate(value: string) {
   const compositionPart = value.split(";")[0].trim().toLowerCase();
-  if (!compositionPart || /^(ancient|unknown|uncertain|undated)$/.test(compositionPart)) {
+  if (
+    !compositionPart ||
+    /^(ancient|unknown|uncertain|undated)$/.test(compositionPart)
+  ) {
     return false;
   }
   return /\b(?:c\.?\s*)?\d{1,4}\s*(?:bce|bc|ce|ad)\b|\b\d{1,2}(?:st|nd|rd|th)?\s+centur(?:y|ies)\b/i
@@ -357,12 +359,16 @@ function metadataFields(metadata: OracleShadowSourceMetadata[]) {
   for (const source of metadata) {
     for (const [key, value] of Object.entries(source)) {
       if (key === "id" || key === "title") continue;
-      if (value !== null && value !== undefined && value !== "") fields.add(key);
+      if (value !== null && value !== undefined && value !== "") {
+        fields.add(key);
+      }
     }
   }
   return [...fields].sort();
 }
 
 function uniqueStrings(values: Array<string | null | undefined>) {
-  return [...new Set(values.filter((value): value is string => Boolean(value)))];
+  return [
+    ...new Set(values.filter((value): value is string => Boolean(value))),
+  ];
 }
