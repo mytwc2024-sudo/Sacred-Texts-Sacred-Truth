@@ -49,7 +49,8 @@ Deno.test("direct passage phrase is supported", () => {
     [
       ancientUnit({
         title: "Prayer of Manasses",
-        excerpt: "I pray and beseech thee, release me, Lord, release me, and destroy me not with my transgressions.",
+        excerpt:
+          "I pray and beseech thee, release me, Lord, release me, and destroy me not with my transgressions.",
         score: 0.87,
       }),
     ],
@@ -66,7 +67,8 @@ Deno.test("high semantic score plus strong term coverage is supported", () => {
     [
       ancientUnit({
         title: "Prayer of Manasses",
-        excerpt: "The passage joins mercy, compassion, repentance, and the confession of a sinner.",
+        excerpt:
+          "The passage joins mercy, compassion, repentance, and the confession of a sinner.",
         score: 0.91,
       }),
     ],
@@ -84,7 +86,8 @@ Deno.test("in-domain event intent remains related when only thematic evidence ex
     [
       ancientUnit({
         title: "Psalter",
-        excerpt: "He made known his ways to Moses, his will to the children of Israel.",
+        excerpt:
+          "He made known his ways to Moses, his will to the children of Israel.",
         score: 0.889,
       }),
     ],
@@ -102,7 +105,8 @@ Deno.test("thematically adjacent teaching is related rather than overclaimed", (
     [
       ancientUnit({
         title: "Psalter",
-        excerpt: "Let the enemy persecute my soul, and take it; and let him trample my life on the ground.",
+        excerpt:
+          "Let the enemy persecute my soul, and take it; and let him trample my life on the ground.",
         score: 0.895,
       }),
     ],

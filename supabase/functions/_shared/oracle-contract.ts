@@ -372,7 +372,9 @@ export function assessEvidenceRelationship(
     };
   }
 
-  const ancientUnits = evidenceUnits.filter((unit) => unit.well === "akst_ancient");
+  const ancientUnits = evidenceUnits.filter((unit) =>
+    unit.well === "akst_ancient"
+  );
   const queryTerms = significantTerms(question);
   if (!ancientUnits.length) {
     return {
@@ -395,12 +397,21 @@ export function assessEvidenceRelationship(
   let matchedTerms: string[] = [];
 
   for (const unit of ancientUnits) {
-    const evidenceText = [unit.title, unit.excerpt, unit.author, unit.source_name]
+    const evidenceText = [
+      unit.title,
+      unit.excerpt,
+      unit.author,
+      unit.source_name,
+    ]
       .filter((value): value is string => Boolean(value))
       .join(" ");
     const evidenceTokens = new Set(tokenize(evidenceText));
-    const currentMatched = queryTerms.filter((term) => evidenceTokens.has(term));
-    const coverage = queryTerms.length ? currentMatched.length / queryTerms.length : 0;
+    const currentMatched = queryTerms.filter((term) =>
+      evidenceTokens.has(term)
+    );
+    const coverage = queryTerms.length
+      ? currentMatched.length / queryTerms.length
+      : 0;
     if (coverage > maxTermCoverage) {
       maxTermCoverage = coverage;
       matchedTerms = currentMatched;
@@ -419,7 +430,8 @@ export function assessEvidenceRelationship(
     const phrase = findDirectPhrase(question, evidenceText);
     if (
       phrase &&
-      (!directPhraseMatch || tokenize(phrase).length > tokenize(directPhraseMatch).length)
+      (!directPhraseMatch ||
+        tokenize(phrase).length > tokenize(directPhraseMatch).length)
     ) {
       directPhraseMatch = phrase;
     }
@@ -428,8 +440,12 @@ export function assessEvidenceRelationship(
   const semanticScores = ancientUnits
     .filter((unit) => unit.retrieval_method?.includes("vector"))
     .map((unit) => unit.score)
-    .filter((score): score is number => typeof score === "number" && Number.isFinite(score));
-  const topSemanticScore = semanticScores.length ? Math.max(...semanticScores) : null;
+    .filter((score): score is number =>
+      typeof score === "number" && Number.isFinite(score)
+    );
+  const topSemanticScore = semanticScores.length
+    ? Math.max(...semanticScores)
+    : null;
 
   const strongSemanticAndCoverage = topSemanticScore !== null &&
     topSemanticScore >= AKST_STRONG_SEMANTIC_SCORE &&
@@ -440,7 +456,9 @@ export function assessEvidenceRelationship(
     const reasons: string[] = [];
     if (sourceTitleMatch) reasons.push("direct_source_title_match");
     if (directPhraseMatch) reasons.push("direct_passage_phrase_match");
-    if (strongSemanticAndCoverage) reasons.push("high_semantic_and_term_coverage");
+    if (strongSemanticAndCoverage) {
+      reasons.push("high_semantic_and_term_coverage");
+    }
     return {
       level: "supported",
       scope: "akst_learning",
@@ -461,7 +479,10 @@ export function assessEvidenceRelationship(
     return {
       level: "insufficient",
       scope: "akst_learning",
-      reasons: ["semantic_score_below_calibrated_floor", "weak_term_corroboration"],
+      reasons: [
+        "semantic_score_below_calibrated_floor",
+        "weak_term_corroboration",
+      ],
       top_semantic_score: topSemanticScore,
       max_term_coverage: maxTermCoverage,
       source_title_match: null,
@@ -486,7 +507,9 @@ export function assessEvidenceRelationship(
 
 function significantTerms(text: string) {
   return uniqueStrings(
-    tokenize(text).filter((term) => term.length > 2 && !SUPPORT_STOP_WORDS.has(term)),
+    tokenize(text).filter((term) =>
+      term.length > 2 && !SUPPORT_STOP_WORDS.has(term)
+    ),
   );
 }
 
@@ -508,9 +531,13 @@ function findDirectPhrase(query: string, evidence: string) {
       const significantCount = window.filter((term) =>
         term.length > 2 && !SUPPORT_STOP_WORDS.has(term)
       ).length;
-      if (significantCount < 2) continue;
+      if (significantCount < 2) {
+        continue;
+      }
       const phrase = window.join(" ");
-      if (evidenceText.includes(` ${phrase} `)) return phrase;
+      if (evidenceText.includes(` ${phrase} `)) {
+        return phrase;
+      }
     }
   }
   return null;
