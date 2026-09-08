@@ -81,13 +81,12 @@ function deriveOverallState(
   const evaluated = shadow.subqueries.filter((section) =>
     section.satisfaction !== "not_assessed"
   );
-  const met = evaluated.filter((section) => section.satisfaction === "met").length;
-  const partial = evaluated.filter((section) =>
-    section.satisfaction === "partial"
-  ).length;
-  const unmet = evaluated.filter((section) =>
-    section.satisfaction === "unmet"
-  ).length;
+  const met =
+    evaluated.filter((section) => section.satisfaction === "met").length;
+  const partial =
+    evaluated.filter((section) => section.satisfaction === "partial").length;
+  const unmet =
+    evaluated.filter((section) => section.satisfaction === "unmet").length;
 
   if (unmet === evaluated.length) return "insufficient";
   if (unmet > 0) return "mixed_with_gaps";
