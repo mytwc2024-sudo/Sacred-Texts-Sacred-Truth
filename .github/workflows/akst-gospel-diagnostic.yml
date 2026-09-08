@@ -1,0 +1,36 @@
+name: AKST Gospel Diagnostic
+
+on:
+  push:
+    branches:
+      - diagnostic/akst-gospel-20260908
+
+permissions:
+  contents: read
+
+concurrency:
+  group: akst-gospel-diagnostic
+  cancel-in-progress: false
+
+jobs:
+  diagnose:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      - name: Diagnose Gospel of Thomas ingestion
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+        run: npx tsx src/ingest/index.ts --only "Gospel of Thomas"
