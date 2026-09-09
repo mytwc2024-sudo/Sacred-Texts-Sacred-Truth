@@ -1,8 +1,8 @@
 import { assert, assertEquals } from "jsr:@std/assert@1";
 import {
-  rankOracleHybridCandidates,
   type OracleHybridRankingCandidate,
   type OracleHybridRankingContext,
+  rankOracleHybridCandidates,
 } from "./oracle-hybrid-ranking.ts";
 
 function candidate(
@@ -156,7 +156,10 @@ Deno.test("chronology metadata does not silently dominate an ordinary textual qu
 
 Deno.test("provenance intent prefers stronger source/witness and location metadata", () => {
   const result = rankOracleHybridCandidates(
-    context({ intent: "provenance_manuscript", question: "What is its provenance?" }),
+    context({
+      intent: "provenance_manuscript",
+      question: "What is its provenance?",
+    }),
     [
       candidate("thin", { vector_similarity: 0.94 }),
       candidate("documented", {
@@ -200,5 +203,7 @@ Deno.test("hybrid ranking remains advisory and cannot control retrieval or answe
   assertEquals(result.mode, "advisory");
   assertEquals(result.applied_to_primary_retrieval, false);
   assertEquals(result.applied_to_answer, false);
-  assert(result.warnings.includes("weights_are_not_assumed_without_calibration"));
+  assert(
+    result.warnings.includes("weights_are_not_assumed_without_calibration"),
+  );
 });
