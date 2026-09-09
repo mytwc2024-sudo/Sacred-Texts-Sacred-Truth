@@ -1,10 +1,10 @@
 import { assert, assertEquals } from "jsr:@std/assert@1";
 import type { OracleHybridRankingContext } from "./oracle-hybrid-ranking.ts";
 import {
-  runOracleHybridRankingShadow,
   type OracleHybridShadowCallbacks,
   type OracleHybridShadowLaneHit,
   type OracleHybridShadowMetadata,
+  runOracleHybridRankingShadow,
 } from "./oracle-hybrid-ranking-shadow.ts";
 
 const BASE_CONTEXT: OracleHybridRankingContext = {
