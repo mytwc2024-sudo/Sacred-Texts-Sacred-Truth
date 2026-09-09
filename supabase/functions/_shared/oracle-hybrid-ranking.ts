@@ -95,7 +95,10 @@ function evaluateCandidate(
 ): Omit<OracleHybridRankedCandidate, "rank"> {
   const publicationEligible = isPublicationEligible(candidate);
   const traditionFilterRank = traditionRank(context, candidate);
-  const directTitleMatch = hasDirectTitleMatch(context.question, candidate.title);
+  const directTitleMatch = hasDirectTitleMatch(
+    context.question,
+    candidate.title,
+  );
   const lexicalTermCoverage = clamp01(candidate.lexical_term_coverage);
   const lexicalScore = nonNegative(candidate.lexical_score);
   const intentMetadataRank = metadataRankForIntent(context.intent, candidate);
@@ -130,7 +133,10 @@ function compareRanked(
   const a = left.signals;
   const b = right.signals;
 
-  return compareNumber(Number(b.publication_eligible), Number(a.publication_eligible)) ||
+  return compareNumber(
+    Number(b.publication_eligible),
+    Number(a.publication_eligible),
+  ) ||
     compareNumber(b.tradition_filter_rank, a.tradition_filter_rank) ||
     compareNumber(Number(b.direct_title_match), Number(a.direct_title_match)) ||
     compareNumber(b.lexical_term_coverage, a.lexical_term_coverage) ||
@@ -175,14 +181,17 @@ function traditionRank(
 function hasDirectTitleMatch(question: string, title: string) {
   const normalizedQuestion = normalizeText(question);
   const normalizedTitle = normalizeText(title);
-  return normalizedTitle.length >= 4 && normalizedQuestion.includes(normalizedTitle);
+  return normalizedTitle.length >= 4 &&
+    normalizedQuestion.includes(normalizedTitle);
 }
 
 function metadataRankForIntent(
   intent: OracleQueryIntent,
   candidate: OracleHybridRankingCandidate,
 ) {
-  if (intent === "chronology") return chronologyMetadataRank(candidate.estimated_date);
+  if (intent === "chronology") {
+    return chronologyMetadataRank(candidate.estimated_date);
+  }
   if (intent === "provenance_manuscript") {
     return sourceCompleteness(candidate) + locationRank(candidate);
   }
@@ -209,7 +218,9 @@ function hasSpecificDate(value: string) {
 
 function locationRank(candidate: OracleHybridRankingCandidate): 0 | 1 | 2 {
   if (candidate.unit_path?.trim()) return 2;
-  if (candidate.chapter_title?.trim() || candidate.section_title?.trim()) return 1;
+  if (candidate.chapter_title?.trim() || candidate.section_title?.trim()) {
+    return 1;
+  }
   return 0;
 }
 
@@ -218,7 +229,8 @@ function sourceCompleteness(candidate: OracleHybridRankingCandidate) {
     candidate.source_url,
     candidate.witness_key,
     candidate.verification_status,
-  ].filter((value) => typeof value === "string" && value.trim().length > 0).length;
+  ].filter((value) => typeof value === "string" && value.trim().length > 0)
+    .length;
 }
 
 function reasonCodes(
@@ -231,13 +243,21 @@ function reasonCodes(
       ? "publication_eligible"
       : "publication_ineligible",
   );
-  if (signals.tradition_filter_rank === 2) reasons.push("tradition_filter_match");
-  if (signals.tradition_filter_rank === 0) reasons.push("tradition_filter_mismatch");
+  if (signals.tradition_filter_rank === 2) {
+    reasons.push("tradition_filter_match");
+  }
+  if (signals.tradition_filter_rank === 0) {
+    reasons.push("tradition_filter_mismatch");
+  }
   if (signals.direct_title_match) reasons.push("direct_title_match");
-  if (signals.lexical_term_coverage > 0) reasons.push("lexical_term_corroboration");
+  if (signals.lexical_term_coverage > 0) {
+    reasons.push("lexical_term_corroboration");
+  }
   if (signals.lexical_score > 0) reasons.push("lexical_match_score_present");
   if (signals.vector_similarity >= 0) reasons.push("vector_similarity_present");
-  if (signals.exact_location_rank > 0) reasons.push("exact_location_metadata_present");
+  if (signals.exact_location_rank > 0) {
+    reasons.push("exact_location_metadata_present");
+  }
   if (signals.source_metadata_completeness > 0) {
     reasons.push("source_witness_metadata_present");
   }
