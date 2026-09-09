@@ -1,8 +1,7 @@
-name: AKST Ingestion
+name: AKST Embedding Backfill
 
-# Runs the Sacred-Texts.com -> Supabase ingestion pipeline.
-# - Manually via the "Run workflow" button (optionally targeting one title).
-# - On a weekly schedule to pick up newly-added catalog entries.
+# Embeds chunks that are already stored in Supabase but have no vector yet.
+# Decoupled from scraping, so it works even when the source site is unreachable.
 #
 # Secrets required (Settings -> Secrets and variables -> Actions):
 #   SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, OPENAI_API_KEY
@@ -11,28 +10,25 @@ on:
   workflow_dispatch:
     inputs:
       only:
-        description: 'Ingest a single title (exact match). Leave blank for all.'
+        description: 'Backfill a single title (exact match). Leave blank for all.'
         required: false
         type: string
       dry_run:
-        description: 'Scrape + chunk only (no OpenAI, no DB writes).'
+        description: 'Only count chunks needing embeddings (no OpenAI, no writes).'
         required: false
         type: boolean
         default: false
-      skip_embeddings:
-        description: 'Store texts + chunks with NULL vectors (no OpenAI calls). Backfill embeddings later.'
+      limit:
+        description: 'Cap the number of chunks embedded this run (blank = no cap).'
         required: false
-        type: boolean
-        default: false
-  schedule:
-    - cron: '0 6 * * 1' # Mondays 06:00 UTC
+        type: string
 
 concurrency:
-  group: akst-ingest
+  group: akst-backfill
   cancel-in-progress: false
 
 jobs:
-  ingest:
+  backfill:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -46,17 +42,17 @@ jobs:
 
       - run: npm ci
 
-      - name: Run ingestion
+      - name: Backfill embeddings
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           ONLY: ${{ inputs.only }}
           DRY_RUN: ${{ inputs.dry_run }}
-          SKIP_EMBEDDINGS: ${{ inputs.skip_embeddings }}
+          LIMIT: ${{ inputs.limit }}
         run: |
           FLAGS=()
           if [ "$DRY_RUN" = "true" ]; then FLAGS+=("--dry-run"); fi
-          if [ "$SKIP_EMBEDDINGS" = "true" ]; then FLAGS+=("--skip-embeddings"); fi
           if [ -n "$ONLY" ]; then FLAGS+=("--only" "$ONLY"); fi
-          npx tsx src/ingest/index.ts "${FLAGS[@]}"
+          if [ -n "$LIMIT" ]; then FLAGS+=("--limit" "$LIMIT"); fi
+          npx tsx src/embed/backfill.ts "${FLAGS[@]}"

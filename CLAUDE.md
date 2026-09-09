@@ -42,6 +42,7 @@ src/
   lib/                 config, Supabase (service-role) client, OpenAI client
   ingest/              the pipeline: types, sources, scrape, chunk, store, index
 .github/workflows/     ingest.yml — scheduled + on-demand ingestion
+                       backfill-embeddings.yml — embed already-stored chunks
 .env.example           template for local secrets (copy to .env; never commit .env)
 ```
 
@@ -55,7 +56,16 @@ npm run list-sources          # print the ingestion catalog
 npm run ingest:dry            # scrape + chunk only (no OpenAI, no DB writes)
 npm run ingest                # full pipeline
 npm run ingest -- --only "Tao Te Ching"
+npm run ingest -- --skip-embeddings   # store texts + chunks with NULL vectors
+npm run backfill:embeddings           # embed already-stored NULL-vector chunks
+npm run backfill:embeddings -- --dry-run   # count what still needs embedding
 ```
+
+`--skip-embeddings` + `backfill:embeddings` split ingestion into two phases so
+embedding is decoupled from scraping: load text/chunks now (even when the
+source site is unreachable or OpenAI is unfunded), then backfill vectors later.
+Both the ingest and backfill workflows run on Node 22 (`@supabase/supabase-js`
+needs a global `WebSocket`).
 
 There is no automated test suite yet. `npm run typecheck` is the fast
 correctness gate; `npm run ingest:dry` exercises scrape+chunk without secrets.
