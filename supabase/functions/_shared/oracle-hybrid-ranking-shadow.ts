@@ -126,7 +126,10 @@ export async function runOracleHybridRankingShadow(
       excerpt,
       vector_similarity: entry.vectorScore,
       lexical_score: entry.lexicalScore,
-      lexical_term_coverage: termCoverage(context.question, lexicalEvidenceText),
+      lexical_term_coverage: termCoverage(
+        context.question,
+        lexicalEvidenceText,
+      ),
       tradition_id: row?.tradition_id ?? null,
       estimated_date: row?.estimated_date ?? null,
       source_name: row?.source_name ?? entry.base.source_name ?? null,
