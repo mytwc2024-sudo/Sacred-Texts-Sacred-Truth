@@ -41,3 +41,65 @@ export async function executeOracleHybridRankingPlanShadow(
     };
   }
 }
+
+export async function executeOracleHybridRankingPlanShadowAgainstDb(
+  db: any,
+  plan: OracleQueryPlan,
+  nativeEmbed: (question: string) => Promise<{
+    vector: number[] | null;
+    status: "ready" | "unavailable";
+  }>,
+): Promise<OracleHybridRankingPlanShadowResult> {
+  return executeOracleHybridRankingPlanShadow({
+    plan,
+    callbacksFor: () => ({
+      retrieveVector: async (question) => {
+        const embedding = await nativeEmbed(question);
+        if (!embedding.vector) return [];
+        const { data, error } = await db.rpc("match_ancient_chunks_gte", {
+          query_embedding: embedding.vector,
+          match_threshold: 0.30,
+          match_count: 8,
+        });
+        if (error) throw error;
+        return (data || []).map((row: any) => ({
+          id: row.chunk_id,
+          text_id: row.text_id,
+          title: row.text_title,
+          excerpt: row.content,
+          score: Number(row.score ?? row.similarity ?? 0),
+          content_tier: row.content_tier,
+          rights_status: row.rights_status,
+        }));
+      },
+      retrieveLexical: async (question) => {
+        const { data, error } = await db.rpc("search_oracle_ancient_lexical", {
+          query_text: question,
+          match_count: 8,
+        });
+        if (error) throw error;
+        return (data || []).map((row: any) => ({
+          id: row.chunk_id,
+          text_id: row.text_id,
+          title: row.text_title,
+          excerpt: row.content,
+          score: Number(row.score ?? 0),
+          content_tier: row.content_tier,
+          rights_status: row.rights_status,
+        }));
+      },
+      loadMetadata: async (chunkIds, textIds) => {
+        let query = db
+          .from("akst_publishable_chunks")
+          .select(
+            "chunk_id,text_id,tradition_id,estimated_date,source_name,source_url,witness_key,verification_status,unit_path,content_tier,rights_status,is_public",
+          );
+        if (chunkIds.length) query = query.in("chunk_id", chunkIds);
+        if (textIds.length) query = query.in("text_id", textIds);
+        const { data, error } = await query;
+        if (error) throw error;
+        return data || [];
+      },
+    }),
+  });
+}
