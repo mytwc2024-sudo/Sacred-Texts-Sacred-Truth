@@ -34,7 +34,7 @@ jobs:
           new = old + '''      const hybridRankingPlanShadow = runShadowHybridRanking\n        ? await executeHybridRankingPlanShadow(db, oracleV1.query_plan)\n        : undefined;\n'''
           assert s.count(old) == 1
           s = s.replace(old, new)
-          old = '''      const queryPlanShadow = runShadowQueryPlan\n      ? await executeQueryPlanShadow(db, oracleV1.query_plan)\n      : undefined;\n'''
+          old = '''    const queryPlanShadow = runShadowQueryPlan\n      ? await executeQueryPlanShadow(db, oracleV1.query_plan)\n      : undefined;\n'''
           new = old + '''    const hybridRankingPlanShadow = runShadowHybridRanking\n      ? await executeHybridRankingPlanShadow(db, oracleV1.query_plan)\n      : undefined;\n'''
           assert s.count(old) == 1
           s = s.replace(old, new)
