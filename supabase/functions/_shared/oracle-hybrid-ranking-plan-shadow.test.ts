@@ -1,8 +1,8 @@
 import { assert, assertEquals } from "jsr:@std/assert@1";
 import type { OracleQueryPlan } from "./oracle-query-plan.ts";
 import {
-  runOracleHybridRankingPlanShadow,
   type OracleHybridPlanShadowCallbacks,
+  runOracleHybridRankingPlanShadow,
 } from "./oracle-hybrid-ranking-plan-shadow.ts";
 
 function plan(
@@ -42,23 +42,25 @@ function callbacks(
   return (item) => {
     seen.push({ id: item.id, intent: item.intent });
     return {
-      retrieveVector: () => Promise.resolve([{
-        id: `${item.id}-chunk`,
-        text_id: `${item.id}-text`,
-        title: `Source ${item.id}`,
-        excerpt: "source evidence",
-        score: 0.86,
-        content_tier: "A",
-        rights_status: "public_domain",
-      }]),
+      retrieveVector: () =>
+        Promise.resolve([{
+          id: `${item.id}-chunk`,
+          text_id: `${item.id}-text`,
+          title: `Source ${item.id}`,
+          excerpt: "source evidence",
+          score: 0.86,
+          content_tier: "A",
+          rights_status: "public_domain",
+        }]),
       retrieveLexical: () => Promise.resolve([]),
-      loadMetadata: () => Promise.resolve([{
-        chunk_id: `${item.id}-chunk`,
-        text_id: `${item.id}-text`,
-        content_tier: "A",
-        rights_status: "public_domain",
-        is_public: true,
-      }]),
+      loadMetadata: () =>
+        Promise.resolve([{
+          chunk_id: `${item.id}-chunk`,
+          text_id: `${item.id}-text`,
+          content_tier: "A",
+          rights_status: "public_domain",
+          is_public: true,
+        }]),
     };
   };
 }
@@ -156,15 +158,16 @@ Deno.test("lane failure remains visible inside a successfully evaluated subquery
     plan([subquery("q1", "textual_claim")]),
     () => ({
       retrieveVector: () => Promise.reject(new Error("vector lane failed")),
-      retrieveLexical: () => Promise.resolve([{
-        id: "lexical",
-        text_id: "text-lexical",
-        title: "Lexical source",
-        excerpt: "source evidence",
-        score: 3,
-        content_tier: "A",
-        rights_status: "public_domain",
-      }]),
+      retrieveLexical: () =>
+        Promise.resolve([{
+          id: "lexical",
+          text_id: "text-lexical",
+          title: "Lexical source",
+          excerpt: "source evidence",
+          score: 3,
+          content_tier: "A",
+          rights_status: "public_domain",
+        }]),
       loadMetadata: () => Promise.resolve([]),
     }),
   );

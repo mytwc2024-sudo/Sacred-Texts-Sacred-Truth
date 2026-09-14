@@ -107,9 +107,8 @@ export async function runOracleHybridRankingPlanShadow(
     warnings: ["hybrid_plan_shadow_subquery_limit"],
   }));
   const subqueries = [...evaluated, ...unevaluated];
-  const evaluatedCount = subqueries.filter((item) =>
-    item.status === "evaluated"
-  ).length;
+  const evaluatedCount =
+    subqueries.filter((item) => item.status === "evaluated").length;
   const status = evaluatedCount === 0
     ? "not_evaluated"
     : evaluatedCount === plan.subqueries.length
