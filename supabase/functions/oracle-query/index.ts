@@ -11,6 +11,7 @@ import {
   runAkstLearningQueryPlanShadow,
 } from "../_shared/oracle-query-plan-shadow-runtime.ts";
 import { buildOracleQueryPlanShadowDiagnostics } from "../_shared/oracle-query-plan-shadow-diagnostics.ts";
+import { executeOracleHybridRankingPlanShadowAgainstDb } from "../_shared/oracle-hybrid-ranking-plan-shadow-runtime.ts";
 
 const CORS = {
   "Access-Control-Allow-Origin": "*",
@@ -60,6 +61,7 @@ Deno.serve(async (req: Request) => {
       : "internal";
     const forceEvidenceOnly = body?.evidence_only === true;
     const runShadowQueryPlan = body?.shadow_query_plan === true;
+    const runShadowHybridRanking = body?.shadow_hybrid_ranking === true;
 
     if (!question) return json({ error: "question is required" }, 400);
     if (question.length > 4000) {
@@ -145,6 +147,13 @@ Deno.serve(async (req: Request) => {
       const queryPlanShadow = runShadowQueryPlan
         ? await executeQueryPlanShadow(db, oracleV1.query_plan)
         : undefined;
+      const hybridRankingPlanShadow = runShadowHybridRanking
+        ? await executeOracleHybridRankingPlanShadowAgainstDb(
+          db,
+          oracleV1.query_plan,
+          nativeEmbed,
+        )
+        : undefined;
 
       return json({
         question,
@@ -161,6 +170,9 @@ Deno.serve(async (req: Request) => {
             diagnostics: {
               ...oracleV1.diagnostics,
               ...buildOracleQueryPlanShadowDiagnostics(queryPlanShadow),
+              ...(hybridRankingPlanShadow
+                ? { hybrid_ranking_plan_shadow: hybridRankingPlanShadow }
+                : {}),
             },
           }
           : {}),
@@ -243,6 +255,13 @@ ${tierC || "(none)"}`;
     });
     const queryPlanShadow = runShadowQueryPlan
       ? await executeQueryPlanShadow(db, oracleV1.query_plan)
+      : undefined;
+    const hybridRankingPlanShadow = runShadowHybridRanking
+      ? await executeOracleHybridRankingPlanShadowAgainstDb(
+        db,
+        oracleV1.query_plan,
+        nativeEmbed,
+      )
       : undefined;
 
     return json({
