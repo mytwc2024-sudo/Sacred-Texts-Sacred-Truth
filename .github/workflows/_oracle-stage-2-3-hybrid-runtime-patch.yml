@@ -1,0 +1,64 @@
+name: Oracle Stage 2.3 Hybrid Runtime Patch
+
+on:
+  push:
+    branches:
+      - "agent/oracle-stage-2-3-hybrid-runtime"
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    if: github.actor == 'mytwc2024-sudo'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: true
+      - name: Apply guarded Oracle hybrid shadow wiring
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path("supabase/functions/oracle-query/index.ts")
+          s = p.read_text()
+          old = 'import { buildOracleQueryPlanShadowDiagnostics } from "../_shared/oracle-query-plan-shadow-diagnostics.ts";\n'
+          new = old + 'import { executeOracleHybridRankingPlanShadow } from "../_shared/oracle-hybrid-ranking-plan-shadow-runtime.ts";\n'
+          assert s.count(old) == 1
+          s = s.replace(old, new)
+          old = '    const runShadowQueryPlan = body?.shadow_query_plan === true;\n'
+          new = old + '    const runShadowHybridRanking = body?.shadow_hybrid_ranking === true;\n'
+          assert s.count(old) == 1
+          s = s.replace(old, new)
+          old = '''      const queryPlanShadow = runShadowQueryPlan\n        ? await executeQueryPlanShadow(db, oracleV1.query_plan)\n        : undefined;\n'''
+          new = old + '''      const hybridRankingPlanShadow = runShadowHybridRanking\n        ? await executeHybridRankingPlanShadow(db, oracleV1.query_plan)\n        : undefined;\n'''
+          assert s.count(old) == 1
+          s = s.replace(old, new)
+          old = '''      const queryPlanShadow = runShadowQueryPlan\n      ? await executeQueryPlanShadow(db, oracleV1.query_plan)\n      : undefined;\n'''
+          new = old + '''    const hybridRankingPlanShadow = runShadowHybridRanking\n      ? await executeHybridRankingPlanShadow(db, oracleV1.query_plan)\n      : undefined;\n'''
+          assert s.count(old) == 1
+          s = s.replace(old, new)
+          old = '''              ...buildOracleQueryPlanShadowDiagnostics(queryPlanShadow),\n'''
+          new = old + '''              ...(hybridRankingPlanShadow\n                ? { hybrid_ranking_plan_shadow: hybridRankingPlanShadow }\n                : {}),\n'''
+          assert s.count(old) == 2
+          s = s.replace(old, new)
+          marker = '''async function authenticateTransport(\n'''
+          helper = r'''async function executeHybridRankingPlanShadow(\n  db: ReturnType<typeof createClient>,\n  plan: Parameters<typeof executeOracleHybridRankingPlanShadow>[0]["plan"],\n) {\n  return executeOracleHybridRankingPlanShadow({\n    plan,\n    callbacksFor: () => ({\n      retrieveVector: async (question) => {\n        const embedding = await nativeEmbed(question);\n        const result = await getAncient(db, question, embedding);\n        return result.hits.map((hit: any) => ({\n          id: hit.id,\n          text_id: hit.text_id,\n          title: hit.title,\n          excerpt: hit.excerpt,\n          score: hit.score,\n          content_tier: hit.content_tier,\n          rights_status: hit.rights_status,\n        }));\n      },\n      retrieveLexical: async (question) => {\n        const { data, error } = await db.rpc("search_oracle_ancient_lexical", {\n          query_text: question,\n          match_count: 8,\n        });\n        if (error) throw error;\n        return (data || []).map((row: any) => ({\n          id: row.chunk_id,\n          text_id: row.text_id,\n          title: row.text_title,\n          excerpt: row.content,\n          score: Number(row.score ?? 0),\n          content_tier: row.content_tier,\n          rights_status: row.rights_status,\n        }));\n      },\n      loadMetadata: async (chunkIds, textIds) => {\n        let query = db\n          .from("akst_publishable_chunks")\n          .select(\n            "chunk_id,text_id,tradition_id,estimated_date,source_name,source_url,witness_key,verification_status,unit_path,content_tier,rights_status,is_public",\n          );\n        if (chunkIds.length) query = query.in("chunk_id", chunkIds);\n        if (textIds.length) query = query.in("text_id", textIds);\n        const { data, error } = await query;\n        if (error) throw error;\n        return data || [];\n      },\n    }),\n  });\n}\n\n'''
+          assert s.count(marker) == 1
+          s = s.replace(marker, helper + marker)
+          p.write_text(s)
+          PY
+      - uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+      - name: Format and test
+        run: |
+          deno fmt supabase/functions/oracle-query/index.ts supabase/functions/_shared/oracle-hybrid-ranking-plan-shadow-runtime.ts
+          deno test supabase/functions/_shared/oracle-contract.test.ts supabase/functions/_shared/oracle-evidence-relationship.test.ts supabase/functions/_shared/oracle-query-plan.test.ts supabase/functions/_shared/oracle-query-plan-integration.test.ts supabase/functions/_shared/oracle-query-plan-shadow.test.ts supabase/functions/_shared/oracle-query-plan-shadow-runtime.test.ts supabase/functions/_shared/oracle-query-plan-recombination.test.ts supabase/functions/_shared/oracle-query-plan-shadow-diagnostics.test.ts supabase/functions/_shared/oracle-hybrid-ranking.test.ts supabase/functions/_shared/oracle-hybrid-ranking-shadow.test.ts supabase/functions/_shared/oracle-hybrid-ranking-plan-shadow.test.ts
+      - name: Commit patch
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add supabase/functions/oracle-query/index.ts supabase/functions/_shared/oracle-hybrid-ranking-plan-shadow-runtime.ts
+          git commit -m "Wire hybrid ranking plan shadow into Oracle" || exit 0
+          git push
