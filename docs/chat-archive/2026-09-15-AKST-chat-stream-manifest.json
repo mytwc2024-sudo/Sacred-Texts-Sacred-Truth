@@ -1,0 +1,23 @@
+{
+  "archive_date": "2026-09-15",
+  "stream": "AKST Oracle implementation and reconciliation",
+  "canonical_repository": "mytwc2024-sudo/Sacred-Texts-Sacred-Truth",
+  "merged_hybrid_runtime_pr": 16,
+  "merged_hybrid_runtime_commit": "c6c00e113ca5d8d5f3675a1c09adbf85624b184c",
+  "production_checkpoint_last_explicitly_recorded": "oracle-query v11",
+  "hybrid_shadow_production_status": "requires fresh canary evidence",
+  "provider_status": "requires fresh runtime evidence",
+  "authority_model": {
+    "oracle": "governed evidence authority",
+    "nova": "orchestration only",
+    "claude": "builder/implementation agent"
+  },
+  "hard_boundaries": [
+    "evidence-first",
+    "publication-and-rights gates",
+    "shadow-before-authority",
+    "semantic similarity is not proof",
+    "source merge is not deployment proof"
+  ],
+  "preserve_with_original_transcript": true
+}
