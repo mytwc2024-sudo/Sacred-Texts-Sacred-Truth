@@ -104,3 +104,7 @@ correctness gate; `npm run ingest:dry` exercises scrape+chunk without secrets.
 - Roadmap after ingestion: knowledge-graph concept extraction, the AI Q&A
   (`Ask AKST`) endpoint over `akst_search_similar_chunks`, and Notion↔Supabase
   sync.
+
+## Editorial preservation worker
+
+`src/notion-sync/editorial-snapshots.ts` is the private Notion-to-AKST page snapshot path, separate from the Supabase catalog-to-Notion sync and learning-path editorial endpoint. It reads two allowlisted registered pages only and preserves metadata without promotion/publication. See `docs/MOTHER_EDITORIAL_PRESERVATION.md` for credential and host acceptance gates. Tests cover pagination, nested failures, malformed cursors and preserved review metadata.
