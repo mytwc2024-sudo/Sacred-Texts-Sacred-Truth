@@ -106,3 +106,7 @@ demand. Configure these repo secrets: `SUPABASE_URL`,
   publishable key.
 - Attribution: every text stores its `source_url` / `source_name` back to
   Sacred-Texts.com. Only public-domain texts are ingested.
+
+## Private editorial page preservation
+
+The Mother Returns / Watch the Sky snapshot worker preserves registered Notion pages into AKST without approving or publishing content. See [activation and acceptance requirements](docs/MOTHER_EDITORIAL_PRESERVATION.md). It is not live until server credentials and host execution are verified.
