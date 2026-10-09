@@ -26,3 +26,12 @@ Run `npm run test:enoch` and `npm run audit:enoch` on a machine with network acc
 6. Leave the earlier *Calls of Enoch* (Dee/Kelley tradition) on rights hold. It is not ancient 1 Enoch.
 
 **Next deployment:** After a reviewed scoped fix and a runtime dry-run prove content integrity, ingest privately through the canonical AKST workflow and only then reconcile 1 Enoch chapter 20 with the Luminaria Angelic Realm Atlas. Do not merge unrelated open project drafts indiscriminately.
+
+
+## Implementation checkpoint — private staging (2026-10-09)
+
+**Verified production AKST database DDL, without any public records:** migration `20261009_enoch_private_stage.sql` created two tables under existing restricted `akst_reconciliation` schema. `20261009_enoch_stage_exact_bytes.sql` added raw-byte base64 retention for verifiable SHA-256. SQL read-back confirmed **RLS enabled and zero SELECT privileges for `anon`, `authenticated`, and `service_role`** on these specific stage tables. No source acquisition rows are presumed present until a separately verified fetch.
+
+The new function source `supabase/functions/akst-stage-enoch-1917/index.ts` is an **isolated collector**, not a replacement for the existing ingest function. It accepts transport-authenticated POST actions `discover`, `collect`, `status`; pins all network requests to one known 1917 archival host and known index/page names; stages exact encoded HTTP bytes, hashes, decoded HTML and page labels; disallows unsafe redirects and never touches `akst_texts`, `akst_text_chunks`, `akst_source_assets`, existing ingest jobs, or public publication fields. A run can end only at `acquired_pending_review`, with `publication_status='NOT_AUTHORIZED'` enforced in SQL. It must not be accessible from the public Luminaria client.
+
+**Do not mislabel source-code existence as runtime:** the new function is not deployed until the Deno/Node CI checks and integration safeguards pass. The database staging tables do not themselves contain the complete Enoch book. Once the function is deployed securely, independently verify its private transport authentication, discover one index, enumerate every source page, fetch in bounded batches, reread page statuses and checksums, and independently compare all 108 chapter labels against the original edition. The preexisting two HTTP-530 jobs remain gated and unchanged. Do not use this staged data to bypass a subsequent separate editorial acceptance/publication decision.

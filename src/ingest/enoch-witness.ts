@@ -61,7 +61,7 @@ export function extractWitnessPages(indexHtml: string): WitnessPage[] {
     if (url.pathname.endsWith('index.htm') || !/\/boe\d{3}\.htm$/.test(url.pathname)) continue;
     if (seen.has(url.href)) continue;
     seen.add(url.href);
-    const label = htmlLabel(match[2]);
+    const label = htmlLabel(match[2] ?? '');
     const chapter = label.match(/\bchapter\s+([IVXLCDM]+)\b/i);
     pages.push({ sequence: pages.length + 1, sourceUrl: url.href, indexLabel: label,
       chapterNumber: chapter ? romanNumeralValue(chapter[1] ?? '') : null });
