@@ -15,7 +15,9 @@
     "list-sources": "tsx src/ingest/index.ts --list",
     "backfill:embeddings": "tsx src/embed/backfill.ts",
     "concepts": "tsx src/concepts/index.ts",
-    "sync:notion": "tsx src/notion-sync/index.ts"
+    "sync:notion": "tsx src/notion-sync/index.ts",
+    "audit:enoch": "tsx scripts/audit-enoch-witness.ts",
+    "test:enoch": "tsx scripts/test-enoch-witness.mjs"
   },
   "dependencies": {
     "@notionhq/client": "^2.2.15",
