@@ -38,7 +38,11 @@ export function romanNumeralValue(input: string): number | null {
   if (!/^(?=[MDCLXVI]+$)M{0,3}(CM|CD|D?C{0,3})(XC|XL|L?X{0,3})(IX|IV|V?I{0,3})$/.test(s)) return null;
   const values: Record<string, number> = { I: 1, V: 5, X: 10, L: 50, C: 100, D: 500, M: 1000 };
   let n = 0;
-  for (let i = 0; i < s.length; i++) n += (values[s[i + 1]] ?? 0) > values[s[i]] ? -values[s[i]] : values[s[i]];
+  for (let i = 0; i < s.length; i++) {
+    const current = values[s.charAt(i)] ?? 0;
+    const next = values[s.charAt(i + 1)] ?? 0;
+    n += next > current ? -current : current;
+  }
   return n;
 }
 
@@ -53,14 +57,14 @@ export function extractWitnessPages(indexHtml: string): WitnessPage[] {
   const anchors = /<a\b[^>]*\bhref\s*=\s*["']([^"']+)["'][^>]*>([\s\S]*?)<\/a\s*>/gi;
   for (const match of indexHtml.matchAll(anchors)) {
     let url: URL;
-    try { url = permittedWitnessUrl(match[1]); } catch { continue; }
+    try { url = permittedWitnessUrl(match[1] ?? ''); } catch { continue; }
     if (url.pathname.endsWith('index.htm') || !/\/boe\d{3}\.htm$/.test(url.pathname)) continue;
     if (seen.has(url.href)) continue;
     seen.add(url.href);
     const label = htmlLabel(match[2]);
     const chapter = label.match(/\bchapter\s+([IVXLCDM]+)\b/i);
     pages.push({ sequence: pages.length + 1, sourceUrl: url.href, indexLabel: label,
-      chapterNumber: chapter ? romanNumeralValue(chapter[1]) : null });
+      chapterNumber: chapter ? romanNumeralValue(chapter[1] ?? '') : null });
   }
   return pages;
 }
@@ -94,6 +98,6 @@ export async function fetchWitnessPage(url: string, fetchImpl: typeof fetch = fe
   const title = html.match(/<title[^>]*>([\s\S]*?)<\/title>/i);
   return { html, receipt: {
     rawSha256:createHash('sha256').update(Buffer.from(raw)).digest('hex'),
-    rawByteCount:raw.byteLength,contentType:type,pageTitle:title?htmlLabel(title[1]):''
+    rawByteCount:raw.byteLength,contentType:type,pageTitle:title?htmlLabel(title[1] ?? ''):''
   } };
 }
