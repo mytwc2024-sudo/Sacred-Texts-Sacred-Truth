@@ -34,4 +34,4 @@ jobs:
       - uses: denoland/setup-deno@v2
         with:
           deno-version: "2.x"
-      - run: deno check supabase/functions/akst-stage-enoch-1917/index.ts
+      - run: deno check --node-modules-dir=auto supabase/functions/akst-stage-enoch-1917/index.ts
