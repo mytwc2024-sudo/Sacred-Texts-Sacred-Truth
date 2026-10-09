@@ -28,7 +28,7 @@ function equalConstantTime(a: string, b: string) {
   return result === 0;
 }
 async function sha256(bytes: Uint8Array): Promise<string> {
-  const hash = await crypto.subtle.digest("SHA-256", bytes);
+  const hash = await crypto.subtle.digest("SHA-256", new Uint8Array(bytes).buffer as ArrayBuffer);
   return [...new Uint8Array(hash)].map(v => v.toString(16).padStart(2, "0")).join("");
 }
 function exactWitnessUrl(candidate: string): string {
@@ -114,7 +114,7 @@ async function findRun(sql: ReturnType<typeof postgres>, registryId: string) {
 }
 async function stageStatus(sql: ReturnType<typeof postgres>, registryId: string) {
   const run = await findRun(sql, registryId);
-  if (!run) return { discovered: false, pending: 0, fetched: 0, failed: 0 };
+  if (!run) return { discovered: false, total: 0, pending: 0, fetched: 0, failed: 0 };
   const aggregates = await sql.unsafe(
     "SELECT count(*)::int AS total, count(*) FILTER (WHERE acquisition_status='pending')::int AS pending, count(*) FILTER (WHERE acquisition_status='fetched')::int AS fetched, count(*) FILTER (WHERE acquisition_status='fetch_failed')::int AS failed FROM akst_reconciliation.enoch_witness_stage_pages WHERE run_id=$1",
     [run.id]
