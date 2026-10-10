@@ -50,3 +50,7 @@ The new function source `supabase/functions/akst-stage-enoch-1917/index.ts` is a
 **Crucial limitation:** This is **30 / 113 raw source pages privately staged**, not a complete ingested `akst_texts` witness, not verified 108-chapter reconstruction, and not public content. The old rights-cleared Enoch jobs remain manually gated. The next acquisition rounds and exact source/verse alignment require continued authenticated retrieval with individual integrity readback. No new public Luminaria data or private Notion visitor link was created.
 
 **Next checkpoint:** Finish the 83 pending page acquisitions with strict pinned-host/hash checks, reconcile mislabeled chapter headings against page contents, reconstruct the exact Charles 1917 text privately, assess rights and edition completeness, and separately approve promotion into the canonical AKST text tables. Until complete, **never label Enoch fully ingested or release the Atlas as source-complete**.
+
+
+### Unauthenticated transport smoke test (2026-10-09)
+A POST with JSON action `status` but **no private transport token** was sent to the isolated deployed staging handler. AKST `pg_net` response ID `14809` returned **HTTP 401**, confirming an unauthenticated request was denied. The authenticated index/page acquisition returned successful requests and 30 verified source records. This does not replace a full adversarial security audit. No secret or raw private witness was returned in this report.
