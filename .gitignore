@@ -18,3 +18,10 @@ npm-debug.log*
 .DS_Store
 .idea/
 .vscode/
+
+# Non-public generated operational material (this repository is public)
+# Keep legitimate publication-ready PDFs trackable; do not ignore every *.pdf.
+internal-reports/
+private-reports/
+*_internal_reassessment*.pdf
+*_supabase_reassessment*.pdf
