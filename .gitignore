@@ -18,3 +18,7 @@ npm-debug.log*
 .DS_Store
 .idea/
 .vscode/
+
+# Generated reports and deliverables
+# Internal operational reports are never committed — this repository is public.
+*.pdf
